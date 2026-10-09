@@ -3,448 +3,204 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Class Audit | Artium Academy</title>
+<title>Class Audits | Artium Academy</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <main id="page" hidden>
-  <!-- Form -->
-  <form id="auditForm" novalidate hidden>
-    <div class="banner info" id="draftBanner" hidden>
-      <span>We restored your unsaved audit.</span>
-      <button class="linkbtn" type="button" id="discardDraft">Start fresh instead</button>
+  <section class="card home-hero">
+    <div>
+      <div class="eyebrow" id="monthLabel"></div>
+      <h1 id="hello">Class Audits</h1>
+      <div class="muted small" id="scopeLabel"></div>
     </div>
-
-    <div class="card">
-      <h1>Class Audit Checklist</h1>
-      <div class="muted small">Rate each item and note what you saw or heard as evidence.</div>
-      <div class="legend">
-        <span class="pill p2">2 · Consistently observed</span>
-        <span class="pill p1">1 · Partly observed</span>
-        <span class="pill p0">0 · Not observed</span>
-        <span class="pill pna">N/A · Not applicable</span>
-      </div>
-    </div>
-
-    <div class="card" id="detailsCard">
-      <h2>Class details</h2>
-      <div class="grid">
-        <div class="full">
-          <label class="f" for="auditor">Auditor <span class="req">*</span></label>
-          <select id="auditor" name="auditor" required></select>
-          <div class="hint" id="auditorHint"></div>
-        </div>
-        <div>
-          <label class="f" for="centre">Centre <span class="req">*</span></label>
-          <select id="centre" name="centre" required disabled></select>
-        </div>
-        <div>
-          <label class="f" for="city">City</label>
-          <input type="text" id="city" readonly tabindex="-1" placeholder="Auto-filled">
-        </div>
-        <div>
-          <label class="f" for="teacher">Teacher <span class="req">*</span></label>
-          <select id="teacher" name="teacher" required disabled></select>
-          <div class="hint" id="teacherHint"></div>
-        </div>
-        <div>
-          <label class="f" for="course">Course</label>
-          <input type="text" id="course" readonly tabindex="-1" placeholder="Auto-filled from teacher">
-        </div>
-        <div>
-          <label class="f" for="classType">Type of class <span class="req">*</span></label>
-          <select id="classType" name="classType" required>
-            <option value="Paid" selected>Paid</option>
-            <option value="Trial">Trial</option>
-          </select>
-        </div>
-        <div>
-          <label class="f" for="batchType">Batch type <span class="req">*</span></label>
-          <select id="batchType" name="batchType" required></select>
-        </div>
-        <div>
-          <label class="f" for="date">Class date <span class="req">*</span></label>
-          <input type="date" id="date" name="date" required>
-          <div class="hint" id="dateHint"></div>
-        </div>
-        <div>
-          <label class="f" for="batchTime">Batch time <span class="req">*</span></label>
-          <select id="batchTime" name="batchTime" required></select>
-        </div>
-        <div>
-          <label class="f" for="present">Learners present <span class="req">*</span></label>
-          <input type="number" id="present" name="present" min="1" max="50" inputmode="numeric" required>
-        </div>
-      </div>
-    </div>
-
-    <div id="sections"></div>
-
-    <div class="card" id="summaryCard">
-      <h2>Summary</h2>
-      <div class="stats">
-        <div class="stat"><div class="v" id="sTotal">0</div><div class="k">Total score</div></div>
-        <div class="stat"><div class="v" id="sMax">0</div><div class="k">Max possible (excl. N/A)</div></div>
-        <div class="stat"><div class="v" id="sPct">–</div><div class="k">Score %</div></div>
-        <div class="stat"><div class="v" id="sLeft">0</div><div class="k">Items not yet rated</div></div>
-      </div>
-      <div class="grid">
-        <div class="full">
-          <label class="f" for="strength">Top strength <span class="req">*</span></label>
-          <textarea id="strength" name="strength" required></textarea>
-        </div>
-        <div class="full">
-          <label class="f" for="improve">Top area to improve <span class="req">*</span></label>
-          <textarea id="improve" name="improve" required></textarea>
-        </div>
-        <div class="full">
-          <div class="autoref" id="autoRef"></div>
-        </div>
-        <div class="full">
-          <span class="f" style="display:block;font-size:13px;font-weight:600;margin-bottom:4px">Do you also want to refer this class to the academic team? <span style="color:var(--bad)">*</span></span>
-          <div class="seg" id="referGroup">
-            <label><input type="radio" name="refer" value="No"> No</label>
-            <label><input type="radio" name="refer" value="Yes"> Yes</label>
-          </div>
-        </div>
-        <div class="full" id="reasonWrap" hidden>
-          <label class="f" for="reason">Your reason for referral <span class="req">*</span></label>
-          <textarea id="reason" name="reason"></textarea>
-        </div>
-      </div>
-    </div>
-
-    <p class="errors" id="formErrors" hidden></p>
-    <button class="btn" type="submit" id="submitBtn">Submit audit</button>
-  </form>
-
-  <!-- Done -->
-  <section id="doneView" class="card center" hidden>
-    <h1>Audit submitted</h1>
-    <div class="big" id="doneScore"></div>
-    <p class="muted" id="doneText"></p>
-    <p class="banner warn" id="donePreview" hidden style="justify-content:center">Preview mode: this audit is saved only in this browser.</p>
-    <button class="btn secondary" type="button" id="newAuditBtn">Start a new audit</button>
-    <p><a href="scores.html" class="small" id="scoresLink">See this teacher's scores</a></p>
+    <a class="btn start-btn" href="audit.html">Start New Audit</a>
   </section>
-  <div class="scorebar" id="scorebar">
-    <span>Score <b id="barScore">0 / 0</b></span>
-    <span><b id="barPct">–</b></span>
-    <span>Rated <b id="barRated">0 / 22</b></span>
-  </div>
+
+  <section class="card todo" id="todoCard">
+    <div class="todo-head">
+      <h2 id="todoTitle">You are yet to audit these teachers this month</h2>
+      <span class="muted small" id="todoMeta"></span>
+    </div>
+    <div class="progress" aria-hidden="true"><span id="todoBar"></span></div>
+    <div id="todoList"></div>
+  </section>
+
+  <section id="centreCards" class="centre-grid"></section>
+
+  <section class="card">
+    <div class="table-head">
+      <h2>This month in detail</h2>
+      <select id="centreFilter" aria-label="Centre" hidden></select>
+    </div>
+    <div class="chips" role="tablist" aria-label="Group by">
+      <button type="button" role="tab" class="chip on" data-view="course">Course</button>
+      <button type="button" role="tab" class="chip" data-view="batch">Batch type</button>
+      <button type="button" role="tab" class="chip" data-view="teacher">Teacher</button>
+    </div>
+    <div class="table-wrap" id="detailTable"></div>
+  </section>
 </main>
 
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-const DRAFT_KEY = "artium-class-audit-draft-v1";
-let ctx = null;      // signed-in user: { session, people, auditors, teacher, isAuditor }
+let ctx = null, audits = [], view = "course";
+const ANY = "__all";
 
-const fmt12 = t => { const [h, m] = t.split(":").map(Number); return ((h + 11) % 12 + 1) + ":" + String(m).padStart(2, "0") + (h < 12 ? " AM" : " PM"); };
-function fillSelect(sel, options, placeholder) {
-  sel.innerHTML = (placeholder ? `<option value="">${esc(placeholder)}</option>` : "") +
-    options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
+const now = new Date();
+const MONTH_KEY = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+const MONTH_NAME = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
+
+const avg = list => { const v = list.map(a => a.scorePct).filter(p => p != null && p !== "").map(Number); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+const pct = p => p == null ? "–" : (Math.round(p * 10) / 10) + "%";
+const pill = p => p == null ? "" : `<span class="scorepill ${p >= 80 ? "sp-good" : p >= REFERRAL_RULES.minScorePct ? "sp-mid" : "sp-low"}">${pct(p)}</span>`;
+const shortDate = iso => iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
+const key = t => t.name + "|" + t.centre;
+
+function myCentres() {
+  return ctx.auditors.some(a => a.centre === ALL) ? CENTRES.map(c => c.name) : [...new Set(ctx.auditors.map(a => a.centre))];
+}
+function teachersIn(centres) { return TEACHERS.filter(t => centres.includes(t.centre)); }
+function thisMonth(list) { return list.filter(a => (a.date || "").startsWith(MONTH_KEY)); }
+
+/* ---------------- render ---------------- */
+function render() {
+  const centres = myCentres();
+  const teachers = teachersIn(centres);
+  const month = thisMonth(audits);
+  const first = (ctx.auditors[0] || {}).name || "";
+
+  $("monthLabel").textContent = MONTH_NAME;
+  $("hello").textContent = "Hi, " + first.split(" ")[0];
+  $("scopeLabel").textContent = centres.length > 1 ? "All centres" : `${centres[0]}, ${centreOf(centres[0]).city}`;
+
+  renderTodo(centres, teachers, month);
+  renderCentres(centres, month);
+  renderTable();
 }
 
-/* ========================================================= build form */
-function buildSections() {
-  $("sections").innerHTML = CHECKLIST.map(sec => `
-    <div class="card" id="sec-${sec.id}">
-      <div class="section-h"><h2>${esc(sec.id)}. ${esc(sec.title)}</h2><span class="sub" id="secScore-${sec.id}"></span></div>
-      ${sec.items.map(it => `
-        <div class="item" id="item-${it.id}">
-          <div class="param"><span class="id">${it.id}</span>${esc(it.p)}</div>
-          <div class="look">${Array.isArray(it.look)
-            ? "<ul>" + it.look.map(l => `<li>${esc(l)}</li>`).join("") + "</ul>"
-            : esc(it.look)}</div>
-          <div class="rating" role="radiogroup" aria-label="Rating for ${it.id}">
-            ${RATINGS.map(r => `
-              <input type="radio" id="r-${it.id}-${r.v}" name="r_${it.id}" value="${r.v}">
-              <label for="r-${it.id}-${r.v}"><b>${r.short || r.v}</b><small>${r.label}</small></label>`).join("")}
-          </div>
-          <textarea id="n-${it.id}" name="n_${it.id}" placeholder="Evidence / notes: what did you see or hear?" rows="2"></textarea>
-        </div>`).join("")}
-    </div>`).join("");
+function renderTodo(centres, teachers, month) {
+  const done = new Set(month.map(a => a.teacher + "|" + a.centre));
+  const lastAudit = {};
+  audits.forEach(a => { const k = a.teacher + "|" + a.centre; if (!lastAudit[k] || a.date > lastAudit[k]) lastAudit[k] = a.date; });
+  const pending = teachers.filter(t => !done.has(key(t)))
+    .sort((a, b) => (lastAudit[key(a)] || "").localeCompare(lastAudit[key(b)] || "") || a.name.localeCompare(b.name));
+  const doneCount = teachers.length - pending.length;
+
+  $("todoBar").style.width = teachers.length ? (doneCount / teachers.length * 100) + "%" : "0%";
+  $("todoMeta").textContent = `${doneCount} of ${teachers.length} audited · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left in ${now.toLocaleDateString("en-IN", { month: "long" })}`;
+
+  if (!pending.length) {
+    $("todoTitle").textContent = "Every teacher has been audited this month";
+    $("todoList").innerHTML = `<p class="muted" style="margin:6px 0 0">Nice work. New audits this month will still show in the overview below.</p>`;
+    return;
+  }
+  $("todoTitle").textContent = `You are yet to audit ${pending.length} teacher${pending.length > 1 ? "s" : ""} this month`;
+  const groups = centres.map(c => ({ c, list: pending.filter(t => t.centre === c) })).filter(g => g.list.length);
+  $("todoList").innerHTML = groups.map(g => `
+    ${centres.length > 1 ? `<div class="todo-centre">${esc(g.c)}</div>` : ""}
+    <ul class="todo-list">
+      ${g.list.map(t => {
+        const last = lastAudit[key(t)];
+        return `<li>
+          <span class="todo-name"><b>${esc(t.name)}</b><small>${esc(t.course)}</small></span>
+          <span class="todo-last ${last ? "" : "never"}">${last ? "Last: " + esc(shortDate(last)) : "Never audited"}</span>
+        </li>`;
+      }).join("")}
+    </ul>`).join("");
 }
 
-function initDetails() {
-  const mine = ctx ? ctx.auditors : [];
-  fillSelect($("auditor"), mine.map(a => ({
-    value: a.name, label: `${a.name} (${a.role}${a.centre === ALL ? "" : ", " + a.centre})`
-  })), mine.length === 1 ? "" : "Select auditor");
-  $("auditor").disabled = mine.length === 1;
-  fillSelect($("batchType"), BATCH_TYPES.map(b => ({ value: b, label: b })), "Select batch type");
-  fillSelect($("centre"), [], "Select auditor first");
-  fillSelect($("teacher"), [], "Select centre first");
-  $("date").value = defaultDate();
-  $("date").max = todayISO();
-  refreshTimes();
+function renderCentres(centres, month) {
+  $("centreCards").innerHTML = centres.map(c => {
+    const ts = TEACHERS.filter(t => t.centre === c);
+    const list = month.filter(a => a.centre === c);
+    const covered = new Set(list.map(a => a.teacher)).size;
+    const ref = list.filter(a => a.referredToAcademic === "Yes").length;
+    const a = avg(list);
+    return `<article class="card centre-card">
+      <div class="centre-top"><h3>${esc(c)}</h3><span class="muted small">${esc(centreOf(c).city)}</span></div>
+      <div class="kpis">
+        <div><div class="v">${list.length}</div><div class="k">Audits</div></div>
+        <div><div class="v">${covered}<small>/${ts.length}</small></div><div class="k">Teachers audited</div></div>
+        <div><div class="v">${a == null ? "–" : pct(a)}</div><div class="k">Average score</div></div>
+        <div><div class="v ${ref ? "warn" : ""}">${ref}</div><div class="k">Referred</div></div>
+      </div>
+      <div class="progress" aria-hidden="true"><span style="width:${ts.length ? covered / ts.length * 100 : 0}%"></span></div>
+    </article>`;
+  }).join("");
 }
 
-function onAuditorChange() {
-  const a = AUDITORS.find(x => x.name === $("auditor").value);
-  const centreSel = $("centre");
-  if (!a) {
-    fillSelect(centreSel, [], "Select auditor first"); centreSel.disabled = true;
-    $("auditorHint").textContent = "";
-  } else if (a.centre === ALL) {
-    fillSelect(centreSel, CENTRES.map(c => ({ value: c.name, label: `${c.name}, ${c.city}` })), "Select centre");
-    centreSel.disabled = false;
-    $("auditorHint").textContent = `${a.role} · can audit all centres`;
+function renderTable() {
+  const centres = myCentres();
+  const f = $("centreFilter").value || ANY;
+  const scope = f === ANY ? centres : [f];
+  const teachers = teachersIn(scope);
+  const month = thisMonth(audits).filter(a => scope.includes(a.centre));
+  const multi = scope.length > 1;
+  let head, rows;
+
+  if (view === "course") {
+    const courses = [...new Set(teachers.map(t => t.course))].sort();
+    head = ["Course", "Teachers", "Audited", "Audits", "Average"];
+    rows = courses.map(c => {
+      const ts = teachers.filter(t => t.course === c);
+      const list = month.filter(a => a.course === c);
+      const covered = new Set(list.map(a => a.teacher + "|" + a.centre)).size;
+      return [esc(c), ts.length, `${covered} / ${ts.length}`, list.length, pill(avg(list)) || "–"];
+    });
+  } else if (view === "batch") {
+    head = ["Batch type", "Audits", "Teachers covered", "Average"];
+    rows = BATCH_TYPES.map(b => {
+      const list = month.filter(a => a.batchType === b);
+      return [esc(b), list.length, new Set(list.map(a => a.teacher + "|" + a.centre)).size, pill(avg(list)) || "–"];
+    });
   } else {
-    const c = centreOf(a.centre);
-    fillSelect(centreSel, [{ value: c.name, label: `${c.name}, ${c.city}` }]);
-    centreSel.value = c.name; centreSel.disabled = true;
-    $("auditorHint").textContent = `${a.role} · ${c.name}, ${c.city}`;
+    head = ["Teacher", "Course", ...(multi ? ["Centre"] : []), "Audits", "Average", "Latest"];
+    rows = teachers.slice().sort((a, b) => a.centre.localeCompare(b.centre) || a.name.localeCompare(b.name)).map(t => {
+      const list = month.filter(a => a.teacher === t.name && a.centre === t.centre);
+      const latest = list.map(a => a.date).sort().pop();
+      return [`<a href="scores.html?teacher=${encodeURIComponent(t.name)}">${esc(t.name)}</a>`, esc(t.course), ...(multi ? [esc(t.centre)] : []),
+              list.length || `<span class="muted">0</span>`, pill(avg(list)) || "–", latest ? esc(shortDate(latest)) : `<span class="muted">–</span>`];
+    });
   }
-  onCentreChange();
+  const isNum = i => i > 0 && !["Course", "Centre"].includes(head[i]);
+  $("detailTable").innerHTML = `<table class="tbl">
+    <thead><tr>${head.map((h, i) => `<th class="${isNum(i) ? "num" : ""}">${h}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${isNum(i) ? "num" : ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody>
+  </table>`;
 }
 
-function onCentreChange() {
-  const c = centreOf($("centre").value);
-  $("city").value = c ? c.city : "";
-  const tSel = $("teacher");
-  if (!c) {
-    fillSelect(tSel, [], "Select centre first"); tSel.disabled = true; $("teacherHint").textContent = "";
-  } else {
-    const list = TEACHERS.filter(t => t.centre === c.name);
-    if (!list.length) {
-      fillSelect(tSel, [], "No teachers listed for this centre"); tSel.disabled = true;
-      $("teacherHint").textContent = "Add this centre's teachers to the team sheet first.";
-    } else {
-      fillSelect(tSel, list.map(t => ({ value: t.name, label: `${t.name} · ${t.course}` })), "Select teacher");
-      tSel.disabled = false; $("teacherHint").textContent = "";
-    }
+/* ---------------- load ---------------- */
+async function load() {
+  try {
+    const out = await new Promise((resolve, reject) =>
+      App.ensureFresh(() => App.api("audits", {}).then(resolve, reject)));
+    audits = out.audits || [];
+    render();
+  } catch (e) {
+    $("todoList").innerHTML = `<p class="errors">Couldn't load audits: ${esc(e.message)}</p>`;
   }
-  onTeacherChange();
 }
 
-function onTeacherChange() {
-  const t = TEACHERS.find(x => x.name === $("teacher").value);
-  $("course").value = t ? t.course : "";
-}
-
-function isMonday(dateVal) { return new Date(dateVal + "T00:00:00").getDay() === 1; }
-function defaultDate() {
-  const d = new Date();
-  if (d.getDay() === 1) d.setDate(d.getDate() - 1);   // Monday is the weekly off: default to Sunday
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 10);
-}
-const hourLabel = h => fmt12(String(h).padStart(2, "0") + ":00");
-
-function refreshTimes() {
-  const dateVal = $("date").value;
-  const hint = $("dateHint");
-  if (dateVal) { hint.className = "hint"; hint.textContent = ""; }
-  if (dateVal && isMonday(dateVal)) {
-    $("date").value = "";
-    hint.className = "hint warn";
-    hint.textContent = "Mondays are the weekly off. Please pick another date.";
-  }
-  const prev = $("batchTime").value;
-  const sel = $("batchTime");
-  if (!$("date").value) {
-    fillSelect(sel, [], "Pick a date first"); sel.disabled = true; return;
-  }
-  const [open, close] = HOURS[new Date($("date").value + "T00:00:00").getDay()];
-  if (!hint.textContent) hint.textContent = `Centre hours: ${hourLabel(open)} to ${hourLabel(close)}`;
-  const batches = [];
-  for (let h = open; h < close; h++) batches.push({
-    value: String(h).padStart(2, "0") + ":00",
-    label: `${hourLabel(h)} – ${hourLabel(h + 1)}`
-  });
-  fillSelect(sel, batches, "Select batch");
-  sel.disabled = false;
-  if (batches.some(b => b.value === prev)) sel.value = prev;
-}
-
-/* ========================================================= scoring */
-function rating(id) { const r = document.querySelector(`input[name="r_${id}"]:checked`); return r ? r.value : ""; }
-function computeScore() {
-  const s = scoreItems(ITEMS.map(it => ({ rating: rating(it.id) })));
-  return { ...s, left: ITEMS.length - s.rated };
-}
-function updateScore() {
-  const s = computeScore();
-  $("sTotal").textContent = s.total; $("sMax").textContent = s.max;
-  $("sPct").textContent = s.pct === null ? "–" : s.pct + "%";
-  $("sLeft").textContent = s.left;
-  $("barScore").textContent = `${s.total} / ${s.max}`;
-  $("barPct").textContent = s.pct === null ? "–" : s.pct + "%";
-  $("barRated").textContent = `${s.rated} / ${ITEMS.length}`;
-  const ar = $("autoRef");
-  ar.classList.toggle("on", s.autoRefer);
-  ar.innerHTML = s.autoRefer
-    ? `<b>This audit will be sent to the academic team automatically</b>Reason: ${esc(s.autoReasons.join(" and "))}.`
-    : `<b>Automatic referral: not triggered</b>Audits are sent to the academic team automatically if the score is below ${REFERRAL_RULES.minScorePct}% or ${REFERRAL_RULES.zeroRatingsLimit} or more items are rated 0.`;
-  CHECKLIST.forEach(sec => {
-    let t = 0, m = 0, done = 0;
-    sec.items.forEach(it => { const r = rating(it.id); if (r) { done++; if (r !== "NA") { t += +r; m += 2; } } });
-    $("secScore-" + sec.id).textContent = done ? `${t} / ${m} · ${done}/${sec.items.length} rated` : `${sec.items.length} items`;
-  });
-}
-
-/* ========================================================= draft save / restore */
-const DETAIL_FIELDS = ["auditor", "centre", "teacher", "classType", "batchType", "date", "batchTime", "present", "strength", "improve", "reason"];
-function getState() {
-  const s = {};
-  DETAIL_FIELDS.forEach(f => s[f] = $(f).value);
-  s.refer = (document.querySelector('input[name="refer"]:checked') || {}).value || "";
-  s.ratings = {}; s.notes = {};
-  ITEMS.forEach(it => { s.ratings[it.id] = rating(it.id); s.notes[it.id] = $("n-" + it.id).value; });
-  return s;
-}
-function setState(s) {
-  $("auditor").value = s.auditor || ""; onAuditorChange();
-  if (s.centre && !$("centre").disabled) { $("centre").value = s.centre; onCentreChange(); }
-  $("teacher").value = s.teacher || ""; onTeacherChange();
-  $("classType").value = s.classType || "Paid";
-  $("batchType").value = s.batchType || "";
-  $("date").value = s.date || defaultDate(); refreshTimes();
-  $("batchTime").value = s.batchTime || "";
-  ["present", "strength", "improve", "reason"].forEach(f => $(f).value = s[f] || "");
-  document.querySelectorAll('input[name="refer"]').forEach(r => r.checked = r.value === s.refer);
-  $("reasonWrap").hidden = s.refer !== "Yes";
-  ITEMS.forEach(it => {
-    document.querySelectorAll(`input[name="r_${it.id}"]`).forEach(r => r.checked = r.value === (s.ratings || {})[it.id]);
-    $("n-" + it.id).value = (s.notes || {})[it.id] || "";
-  });
-  updateScore();
-}
-const hasProgress = s => s && (Object.values(s.ratings || {}).some(Boolean) || Object.values(s.notes || {}).some(Boolean) || s.teacher);
-let saveTimer = null;
-function saveDraft() { clearTimeout(saveTimer); saveTimer = setTimeout(() => store.set(DRAFT_KEY, getState()), 300); }
-
-/* ========================================================= validation & submit */
-function validate() {
-  document.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
-  const bad = [];
-  const need = (id, ok) => { if (!ok) { $(id).classList.add("invalid"); bad.push($(id)); } };
-  ["auditor", "centre", "teacher", "classType", "batchType", "date", "batchTime"].forEach(f => need(f, !!$(f).value));
-  const p = $("present").value;
-  need("present", p !== "" && +p >= 1);
-  let unrated = 0, noEvidence = 0;
-  ITEMS.forEach(it => {
-    const r = rating(it.id), n = $("n-" + it.id).value.trim();
-    if (!r) unrated++;
-    if (!n) { noEvidence++; $("n-" + it.id).classList.add("invalid"); }
-    if (!r || !n) { $("item-" + it.id).classList.add("invalid"); bad.push($("item-" + it.id)); }
-  });
-  need("strength", !!$("strength").value.trim());
-  need("improve", !!$("improve").value.trim());
-  const refer = (document.querySelector('input[name="refer"]:checked') || {}).value;
-  if (!refer) { $("referGroup").classList.add("invalid"); bad.push($("referGroup")); }
-  if (refer === "Yes") need("reason", !!$("reason").value.trim());
-
-  const msgs = [];
-  if (unrated) msgs.push(`${unrated} item${unrated > 1 ? "s" : ""} still need a rating`);
-  if (noEvidence) msgs.push(`${noEvidence} item${noEvidence > 1 ? "s" : ""} need evidence notes`);
-  const otherMissing = bad.filter(el => !el.classList.contains("item")).length;
-  if (otherMissing) msgs.push(`${otherMissing} other required field${otherMissing > 1 ? "s are" : " is"} empty`);
-  if (msgs.length) {
-    $("formErrors").textContent = "Please complete the form: " + msgs.join(", ") + ".";
-    $("formErrors").hidden = false;
-    bad[0].scrollIntoView({ behavior: "smooth", block: "center" });
-    return false;
-  }
-  $("formErrors").hidden = true;
-  return true;
-}
-
-function buildPayload() {
-  const s = getState(), sc = computeScore();
-  const auditor = AUDITORS.find(a => a.name === s.auditor) || {};
-  const teacher = TEACHERS.find(t => t.name === s.teacher) || {};
-  return {
-    submittedBy: ctx.session.email,
-    clientSubmittedAt: new Date().toISOString(),
-    auditor: s.auditor, auditorRole: auditor.role || "", auditorEmail: auditor.email || "",
-    centre: s.centre, city: $("city").value,
-    teacher: s.teacher, teacherEmail: teacher.email || "", course: $("course").value,
-    classType: s.classType, batchType: s.batchType,
-    date: s.date, batchTime: $("batchTime").selectedOptions[0]?.text || s.batchTime,
-    learnersPresent: Number(s.present),
-    items: ITEMS.map(it => ({ id: it.id, section: it.section, parameter: it.p, rating: s.ratings[it.id], evidence: s.notes[it.id].trim() })),
-    totalScore: sc.total, maxPossible: sc.max, scorePct: sc.pct,
-    topStrength: s.strength.trim(), topImprove: s.improve.trim(),
-    auditorReferral: s.refer, auditorReferralReason: s.refer === "Yes" ? s.reason.trim() : "",
-    autoReferral: sc.autoRefer ? "Yes" : "No", autoReferralReason: sc.autoReasons.join("; "),
-    referredToAcademic: (sc.autoRefer || s.refer === "Yes") ? "Yes" : "No"
-  };
-}
-
-async function submit() {
-  if (!validate()) return;
-  App.ensureFresh(async () => {
-    const payload = buildPayload();
-    const btn = $("submitBtn");
-    btn.disabled = true; btn.textContent = "Submitting…";
-    try {
-      await App.api("submit", payload);
-      store.del(DRAFT_KEY);
-      showDone(payload);
-    } catch (e) {
-      $("formErrors").textContent = "Couldn't submit: " + e.message + " Your answers are still here; please try again.";
-      $("formErrors").hidden = false;
-    } finally {
-      btn.disabled = false; btn.textContent = "Submit audit";
-    }
-  });
-}
-
-function showDone(p) {
-  $("auditForm").hidden = true; $("scorebar").hidden = true; $("doneView").hidden = false;
-  $("doneScore").textContent = p.scorePct === null ? "–" : p.scorePct + "%";
-  $("doneText").textContent = `${p.teacher} · ${p.course} · ${p.centre} · ${p.date} — ${p.totalScore} / ${p.maxPossible}`;
-  $("donePreview").hidden = !App.previewData;
-  $("scoresLink").href = "scores.html?teacher=" + encodeURIComponent(p.teacher);
-  if (p.referredToAcademic === "Yes") $("doneText").textContent += " · Sent to the academic team.";
-  window.scrollTo(0, 0);
-}
-
-function resetForm() {
-  $("auditForm").reset();
-  document.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
-  $("formErrors").hidden = true; $("reasonWrap").hidden = true; $("draftBanner").hidden = true;
-  initDetails(); onAuditorChange(); updateScore();
-}
-
-/* ========================================================= show form */
-function showForm() {
-  $("doneView").hidden = true; $("auditForm").hidden = false; $("scorebar").hidden = false;
-  const draft = store.get(DRAFT_KEY);
-  const mine = ctx.auditors.map(a => a.name);
-  if (hasProgress(draft) && mine.includes(draft.auditor)) { setState(draft); $("draftBanner").hidden = false; }
-  else onAuditorChange();
-  updateScore();
-}
-
-/* ========================================================= wire up */
-buildSections();
-
-$("auditor").addEventListener("change", onAuditorChange);
-$("centre").addEventListener("change", onCentreChange);
-$("teacher").addEventListener("change", onTeacherChange);
-$("date").addEventListener("change", refreshTimes);
-$("auditForm").addEventListener("change", e => {
-  if (e.target.name && e.target.name.startsWith("r_")) updateScore();
-  if (e.target.name === "refer") $("reasonWrap").hidden = e.target.value !== "Yes";
-  const host = e.target.closest(".invalid, .item"); if (host) host.classList.remove("invalid");
-  e.target.classList.remove("invalid");
-  saveDraft();
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => {
+  view = b.dataset.view;
+  document.querySelectorAll('[data-view]').forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
+  renderTable();
 });
-$("auditForm").addEventListener("input", e => { e.target.classList.remove("invalid"); saveDraft(); });
-$("auditForm").addEventListener("submit", e => { e.preventDefault(); submit(); });
-$("discardDraft").addEventListener("click", () => { store.del(DRAFT_KEY); resetForm(); });
-$("newAuditBtn").addEventListener("click", () => { resetForm(); showForm(); window.scrollTo(0, 0); });
+$("centreFilter").onchange = renderTable;
+// Pick up audits submitted in another tab when the page comes back into view.
+document.addEventListener("visibilitychange", () => { if (!document.hidden && ctx) load(); });
 
-App.start("audit", c => {
-  if (!c.isAuditor) { location.replace("scores.html"); return; }   // teachers only see their scores
+App.start("home", c => {
+  if (!c.isAuditor) { location.replace("scores.html"); return; }   // teachers only see their own scores
   ctx = c;
-  initDetails();
-  showForm();
+  const centres = myCentres();
+  $("centreFilter").hidden = centres.length < 2;
+  $("centreFilter").innerHTML = `<option value="${ANY}">All centres</option>` + centres.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  load();
 });
 </script>
 </body>

@@ -47,33 +47,63 @@ const App = (() => {
 
   let session = null, ctx = null, pending = null, onReady = null;
 
+  /* ---------- theme: light by default, toggle remembered per browser ---------- */
+  const THEME_KEY = "artium-audit-theme";
+  const SUN = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></svg>';
+  const MOON = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1z"/></svg>';
+  function applyTheme(t) {
+    document.documentElement.dataset.theme = t;
+    const b = document.getElementById("themeBtn");
+    if (b) {
+      b.innerHTML = t === "dark" ? SUN : MOON;
+      b.title = b.ariaLabel = t === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    }
+  }
+  applyTheme(store.get(THEME_KEY) || "light");
+
   /* ---------- shell: top bar, sign-in and no-access views ---------- */
   function mountShell(page) {
     document.body.insertAdjacentHTML("afterbegin", `
       <header class="topbar">
         <div class="brand">Artium Academy <span>· Class Audits</span></div>
         <nav class="nav" id="nav" hidden>
-          <a href="index.html" class="${page === "audit" ? "active" : ""}">New audit</a>
+          <a href="index.html" class="${page === "home" ? "active" : ""}">Home</a>
           <a href="scores.html" class="${page === "scores" ? "active" : ""}">Scores</a>
         </nav>
-        <div class="user" id="userBox" hidden>
-          <img id="userPic" alt="" referrerpolicy="no-referrer" hidden>
-          <span class="email" id="userEmail"></span>
-          <button class="linkbtn" id="signOutBtn" type="button">Sign out</button>
+        <div class="right">
+          <div class="user" id="userBox" hidden>
+            <img id="userPic" alt="" referrerpolicy="no-referrer" hidden>
+            <span class="email" id="userEmail"></span>
+            <button class="linkbtn" id="signOutBtn" type="button">Sign out</button>
+          </div>
+          <button class="iconbtn" id="themeBtn" type="button"></button>
         </div>
       </header>
       <div class="shell">
         <div class="banner warn" id="previewNote" hidden></div>
-        <section id="signinView" class="card center" hidden>
-          <h1>Class Audits</h1>
-          <p class="muted" id="signinText">Sign in with your Artium Academy Google account to continue.</p>
-          <div id="gsiBtn"></div>
-          <div id="previewPick" hidden>
-            <label class="f" for="previewAs" style="text-align:left">Preview as</label>
-            <select id="previewAs"></select>
-            <button class="btn" id="previewGo" type="button" style="margin-top:12px">Continue</button>
+        <section id="signinView" class="signin" hidden>
+          <div class="signin-card">
+            <div class="staff" aria-hidden="true">
+              <span class="note n1"></span><span class="note n2"></span><span class="note n3"></span>
+            </div>
+            <div class="signin-body">
+              <div class="eyebrow">Artium Academy · Offline centres</div>
+              <h1 class="signin-title">Class Audits</h1>
+              <p class="muted" id="signinText">Observe a class, rate it against the checklist, and follow how every teacher is growing, month by month.</p>
+              <div id="gsiBtn"></div>
+              <div id="previewPick" hidden>
+                <label class="f" for="previewAs">Preview as</label>
+                <select id="previewAs"></select>
+                <button class="btn" id="previewGo" type="button">Continue</button>
+              </div>
+              <p class="errors" id="signinError" hidden></p>
+              <ul class="signin-roles">
+                <li><b>Auditors</b> start audits and see their centre's scores.</li>
+                <li><b>Teachers</b> see their own audits and feedback.</li>
+              </ul>
+              <p class="signin-foot">Use your @artiumacademy.com Google account.</p>
+            </div>
           </div>
-          <p class="errors" id="signinError" hidden></p>
         </section>
         <section id="noAccessView" class="card center" hidden>
           <h1>No access yet</h1>
@@ -81,6 +111,11 @@ const App = (() => {
         </section>
       </div>`);
     $("signOutBtn").addEventListener("click", signOut);
+    applyTheme(document.documentElement.dataset.theme);
+    $("themeBtn").addEventListener("click", () => {
+      const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      store.set(THEME_KEY, t); applyTheme(t);
+    });
     if (previewSignIn || previewData) {
       $("previewNote").hidden = false;
       $("previewNote").textContent = previewSignIn
@@ -143,6 +178,7 @@ const App = (() => {
     if (previewSignIn) {
       $("signinText").textContent = "Pick a team member to see the site as they would.";
       $("previewPick").hidden = false;
+      $("gsiBtn").hidden = true;
       const opt = p => `<option value="${esc(p.name)}">${esc(p.name)} · ${esc(p.role)}${p.centre === ALL ? "" : ", " + esc(p.centre)}</option>`;
       $("previewAs").innerHTML =
         `<optgroup label="Auditors">${AUDITORS.map(opt).join("")}</optgroup>` +
@@ -161,7 +197,11 @@ const App = (() => {
         client_id: CONFIG.GOOGLE_CLIENT_ID, callback: onCredential,
         hd: CONFIG.ALLOWED_DOMAIN, auto_select: true, cancel_on_tap_outside: false
       });
-      google.accounts.id.renderButton($("gsiBtn"), { theme: "outline", size: "large", text: "signin_with", shape: "pill" });
+      $("gsiBtn").innerHTML = "";
+      google.accounts.id.renderButton($("gsiBtn"), {
+        theme: document.documentElement.dataset.theme === "dark" ? "filled_black" : "outline",
+        size: "large", text: "continue_with", shape: "pill", logo_alignment: "left", width: 280
+      });
       google.accounts.id.prompt();
     } catch (e) {
       $("signinError").textContent = e.message; $("signinError").hidden = false;
