@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit Scores | Artium Academy</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main id="page" hidden>
+  <!-- Filters (auditors only) -->
+  <div class="card" id="filterCard" hidden>
+    <div class="filters">
+      <div id="centreWrap">
+        <label class="f" for="centrePick">Centre</label>
+        <select id="centrePick"></select>
+      </div>
+      <div>
+        <label class="f" for="teacherPick">Teacher</label>
+        <select id="teacherPick"></select>
+      </div>
+      <div>
+        <label class="f" for="batchPick">Batch type</label>
+        <select id="batchPick"></select>
+      </div>
+    </div>
+    <div class="period">
+      <div>
+        <label class="f" for="monthPick">Month</label>
+        <select id="monthPick"></select>
+      </div>
+      <div>
+        <label class="f" for="yearPick">Year</label>
+        <select id="yearPick"></select>
+      </div>
+      <div>
+        <label class="f" for="fromDate">Start date</label>
+        <input type="date" id="fromDate">
+      </div>
+      <div>
+        <label class="f" for="toDate">End date</label>
+        <input type="date" id="toDate">
+      </div>
+    </div>
+    <div class="hint" style="margin-top:6px">Pick a month and year, or set your own start and end dates.</div>
+    <div class="banner warn small" id="sampleBar" hidden style="margin:14px 0 0">
+      <span id="sampleText"></span>
+      <button class="linkbtn" type="button" id="sampleBtn"></button>
+    </div>
+  </div>
+
+  <div id="content"></div>
+</main>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+const ANY = "__all";
+let ctx = null;
+let allAudits = [];          // everything this person may see
+let rankBy = "overall";
+const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+const SECTION_SHORT = Object.fromEntries(CHECKLIST.map(s => [s.id, s.title.replace(/ \(.*\)$/, "")]));
+
+const pillClass = p => p == null ? "sp-mid" : p >= 80 ? "sp-good" : p >= REFERRAL_RULES.minScorePct ? "sp-mid" : "sp-low";
+const tagClass = r => ({ "2": "t2", "1": "t1", "0": "t0" }[String(r)] || "tna");
+const tagText = r => ({ "2": "2 · Consistently", "1": "1 · Partly", "0": "0 · Not observed" }[String(r)] || "N/A");
+const pctText = p => p == null ? "–" : (Math.round(p * 10) / 10) + "%";
+const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+const isNA = r => r === "NA" || r === "N/A" || r === "" || r == null;
+
+/* ---------------- scoring helpers ---------------- */
+/** % for one audit: overall, or one section (null when that section was all N/A). */
+function auditPct(a, sectionId) {
+  if (sectionId === "overall") return a.scorePct == null ? null : Number(a.scorePct);
+  let t = 0, m = 0;
+  (a.items || []).forEach(it => { if (it.id[0] === sectionId && !isNA(it.rating)) { t += Number(it.rating); m += 2; } });
+  return m ? t / m * 100 : null;
+}
+
+/**
+ * Weighted (Bayesian) average: blend the teacher's own average with the average across everyone
+ * shown, as if the teacher had LEADERBOARD.priorAudits extra audits at that overall average.
+ */
+function leaderboard(teachers, audits, sectionId) {
+  const k = LEADERBOARD.priorAudits;
+  const allPcts = audits.map(a => auditPct(a, sectionId)).filter(p => p != null);
+  const C = mean(allPcts);
+  const rows = teachers.map(t => {
+    const pcts = audits.filter(a => a.teacher === t.name && a.centre === t.centre)
+      .map(a => auditPct(a, sectionId)).filter(p => p != null);
+    const n = pcts.length, avg = mean(pcts);
+    const weighted = n ? (n * avg + k * C) / (n + k) : null;
+    return { t, n, avg, weighted };
+  });
+  rows.sort((a, b) => (b.weighted ?? -1) - (a.weighted ?? -1) || b.n - a.n || a.t.name.localeCompare(b.t.name));
+  return { rows, C };
+}
+
+/* ---------------- period ---------------- */
+const monthLabel = key => new Date(key + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const FIRST_YEAR = 2026;
+const lastDay = (y, m) => new Date(y, m, 0).getDate();     // m is 1–12
+
+/* Month + Year fill in the start and end dates; editing a date directly switches Month to "Custom dates". */
+function setupPeriod(saved) {
+  const thisYear = new Date().getFullYear();
+  const years = []; for (let y = Math.max(thisYear, FIRST_YEAR); y >= FIRST_YEAR; y--) years.push(y);
+  $("yearPick").innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
+  $("monthPick").innerHTML = `<option value="all">All time</option>` +
+    MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("") +
+    `<option value="custom" hidden>Custom dates</option>`;
+  if (saved.year && years.includes(+saved.year)) $("yearPick").value = saved.year;
+  $("monthPick").value = saved.month || "all";
+  $("fromDate").value = saved.from || "";
+  $("toDate").value = saved.to || "";
+  syncPeriodUI();
+
+  const fromMonthYear = () => {
+    const m = $("monthPick").value, y = +$("yearPick").value;
+    if (m === "all") { $("fromDate").value = ""; $("toDate").value = ""; }
+    else if (m !== "custom") {
+      const mm = String(m).padStart(2, "0");
+      $("fromDate").value = `${y}-${mm}-01`;
+      $("toDate").value = `${y}-${mm}-${lastDay(y, +m)}`;
+    }
+    syncPeriodUI(); refresh();
+  };
+  $("monthPick").onchange = fromMonthYear;
+  $("yearPick").onchange = fromMonthYear;
+  const fromDates = () => {
+    const f = $("fromDate").value, t = $("toDate").value;
+    $("monthPick").value = f || t ? "custom" : "all";
+    syncPeriodUI(); refresh();
+  };
+  $("fromDate").onchange = fromDates;
+  $("toDate").onchange = fromDates;
+}
+function syncPeriodUI() {
+  const m = $("monthPick").value;
+  $("monthPick").querySelector('option[value="custom"]').hidden = m !== "custom";
+  $("yearPick").disabled = m === "all" || m === "custom";
+  $("toDate").min = $("fromDate").value || "";
+  $("fromDate").max = $("toDate").value || "";
+}
+
+/** Returns [from, to, label]; from/to are yyyy-mm-dd or "". */
+function periodRange() {
+  const f = $("fromDate").value, t = $("toDate").value, m = $("monthPick").value;
+  if (!f && !t) return ["", "", ""];
+  if (m !== "custom" && m !== "all") return [f, t, `${MONTHS[m - 1]} ${$("yearPick").value}`];
+  return [f, t, `${f ? fmtDate(f) : "Start"} to ${t ? fmtDate(t) : "today"}`];
+}
+
+/* ---------------- filters ---------------- */
+function allowedCentres() {
+  return ctx.auditors.some(a => a.centre === ALL) ? CENTRES.map(c => c.name) : [...new Set(ctx.auditors.map(a => a.centre))];
+}
+function opts(list, allLabel) {
+  return (allLabel ? `<option value="${ANY}">${esc(allLabel)}</option>` : "") +
+    list.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
+}
+function teachersIn(centre) {
+  const cs = centre === ANY ? allowedCentres() : [centre];
+  return TEACHERS.filter(t => cs.includes(t.centre));
+}
+function fillTeachers() {
+  const centre = $("centrePick").value;
+  const list = teachersIn(centre);
+  const showCentre = centre === ANY;
+  $("teacherPick").innerHTML = opts(list.map(t => ({
+    value: t.name, label: `${t.name} · ${t.course}${showCentre ? " · " + t.centre : ""}`
+  })), "All teachers");
+}
+function setupFilters() {
+  const centres = allowedCentres();
+  $("filterCard").hidden = false;
+  $("centrePick").innerHTML = opts(centres.map(c => ({ value: c, label: `${c}, ${centreOf(c).city}` })), centres.length > 1 ? "All centres" : "");
+  $("centreWrap").hidden = centres.length === 1;
+  $("batchPick").innerHTML = opts(BATCH_TYPES.map(b => ({ value: b, label: b })), "All batch types");
+
+  const wanted = new URLSearchParams(location.search).get("teacher");
+  const saved = store.get("artium-scores-filters", sessionStorage) || {};
+  const wantedT = TEACHERS.find(t => t.name === wanted && centres.includes(t.centre));
+  if (wantedT) { $("centrePick").value = wantedT.centre; fillTeachers(); $("teacherPick").value = wantedT.name; }
+  else {
+    if (saved.centre && [...$("centrePick").options].some(o => o.value === saved.centre)) $("centrePick").value = saved.centre;
+    fillTeachers();
+    if (saved.teacher && [...$("teacherPick").options].some(o => o.value === saved.teacher)) $("teacherPick").value = saved.teacher;
+    if (saved.batch) $("batchPick").value = saved.batch;
+    if (saved.rankBy) rankBy = saved.rankBy;
+  }
+  setupPeriod(wantedT ? {} : saved);
+  $("centrePick").onchange = () => { fillTeachers(); refresh(); };
+  $("teacherPick").onchange = refresh;
+  $("batchPick").onchange = refresh;
+}
+function filters() {
+  return { centre: $("centrePick").value, teacher: $("teacherPick").value, batch: $("batchPick").value,
+           month: $("monthPick").value, year: $("yearPick").value, from: $("fromDate").value, to: $("toDate").value };
+}
+
+/* ---------------- load ---------------- */
+async function load() {
+  $("content").innerHTML = `<div class="card empty">Loading audits…</div>`;
+  try {
+    const out = await new Promise((resolve, reject) =>
+      App.ensureFresh(() => App.api("audits", {}).then(resolve, reject)));
+    allAudits = out.audits || [];
+    refresh();
+  } catch (e) {
+    $("content").innerHTML = `<div class="card empty">Couldn't load audits: ${esc(e.message)}</div>`;
+  }
+}
+
+function refresh() {
+  if (!ctx.isAuditor) { renderTeacher(ctx.teacher, allAudits); return; }
+  const f = filters();
+  store.set("artium-scores-filters", { ...f, rankBy }, sessionStorage);
+  updateSampleBar();
+  const [from, to, periodLabel] = periodRange();
+  const keep = a => (f.batch === ANY || a.batchType === f.batch) && (!from || a.date >= from) && (!to || a.date <= to);
+  const note = [f.batch === ANY ? "" : `${f.batch} batches`, periodLabel].filter(Boolean).join(" · ");
+  if (f.teacher !== ANY) {
+    const t = TEACHERS.find(x => x.name === f.teacher);
+    renderTeacher(t, allAudits.filter(a => a.teacher === t.name && a.centre === t.centre && keep(a)), note);
+  } else {
+    const teachers = teachersIn(f.centre);
+    const audits = allAudits.filter(a => (f.centre === ANY || a.centre === f.centre) && keep(a));
+    renderGroup(teachers, audits, f, note);
+  }
+}
+
+function updateSampleBar() {
+  if (!App.previewData) return;
+  const hasSample = allAudits.some(a => a.sample);
+  $("sampleBar").hidden = false;
+  $("sampleText").textContent = hasSample
+    ? "Showing sample audits so you can see the leaderboards. They're made up and stored only in this browser."
+    : allAudits.length ? "" : "No audits yet. Load sample audits to see how the leaderboards look.";
+  $("sampleBtn").textContent = hasSample ? "Remove sample audits" : "Load sample audits";
+  $("sampleBar").hidden = !hasSample && allAudits.length > 0;
+}
+
+/* ---------------- group view: leaderboards ---------------- */
+function renderGroup(teachers, audits, f, note) {
+  const scope = f.centre === ANY ? "All centres" : `${f.centre}, ${centreOf(f.centre).city}`;
+  const batchNote = note ? " · " + note : "";
+  const audited = new Set(audits.map(a => a.teacher + "|" + a.centre));
+  const avg = mean(audits.map(a => a.scorePct).filter(p => p != null).map(Number));
+  const referred = audits.filter(a => a.referredToAcademic === "Yes").length;
+  const showCentre = f.centre === ANY;
+
+  const { rows, C } = leaderboard(teachers, audits, rankBy);
+  const ranked = rows.filter(r => r.n), unaudited = rows.filter(r => !r.n);
+  const chips = [["overall", "Overall"], ...CHECKLIST.map(s => [s.id, `${s.id}. ${SECTION_SHORT[s.id]}`])];
+
+  $("content").innerHTML = `
+    <div class="card">
+      <h1>${esc(scope)}</h1>
+      <div class="muted small">All teachers${esc(batchNote)}</div>
+      <div class="stats" style="margin:14px 0 0">
+        <div class="stat"><div class="v">${audits.length}</div><div class="k">Audits</div></div>
+        <div class="stat"><div class="v">${audited.size} / ${teachers.length}</div><div class="k">Teachers audited</div></div>
+        <div class="stat"><div class="v">${pctText(avg)}</div><div class="k">Average score</div></div>
+        <div class="stat"><div class="v">${referred}</div><div class="k">Sent to academic team</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Leaderboard</h2>
+      <div class="chips" role="tablist" aria-label="Rank by">
+        ${chips.map(([id, label]) => `<button type="button" role="tab" class="chip ${id === rankBy ? "on" : ""}" aria-selected="${id === rankBy}" data-rank="${id}">${esc(label)}</button>`).join("")}
+      </div>
+      <p class="muted small" style="margin:12px 0 4px">
+        Ranked by weighted score${rankBy === "overall" ? "" : " for " + esc(SECTION_SHORT[rankBy])}. Each teacher's average is blended with
+        the group average (${pctText(C)}) as if they had ${LEADERBOARD.priorAudits} more audits at that level, so one or two great classes can't top the board.
+      </p>
+      ${ranked.length ? `
+      <div class="lb" role="table">
+        <div class="lb-row lb-head" role="row">
+          <span role="columnheader">#</span><span role="columnheader">Teacher</span>
+          <span role="columnheader" class="num">Audits</span><span role="columnheader" class="num">Average</span>
+          <span role="columnheader" class="num">Weighted</span>
+        </div>
+        ${ranked.map((r, i) => `
+        <button type="button" class="lb-row" role="row" data-teacher="${esc(r.t.name)}">
+          <span class="rank">${i + 1}</span>
+          <span class="who-cell"><b>${esc(r.t.name)}</b><small>${esc(r.t.course)}${showCentre ? " · " + esc(r.t.centre) : ""}</small></span>
+          <span class="num">${r.n}${r.n < LEADERBOARD.priorAudits ? `<small class="few" title="Few audits: score is pulled towards the average">few</small>` : ""}</span>
+          <span class="num muted">${pctText(r.avg)}</span>
+          <span class="num"><span class="scorepill ${pillClass(r.weighted)}">${pctText(r.weighted)}</span></span>
+          <span class="lb-bar"><span style="width:${Math.max(0, Math.min(100, r.weighted))}%"></span></span>
+        </button>`).join("")}
+      </div>` : `<div class="empty">No audits match these filters yet.</div>`}
+      ${unaudited.length ? `<p class="muted small" style="margin:12px 0 0"><b>Not audited${note ? " (" + esc(note) + ")" : " yet"}:</b> ${unaudited.map(r => esc(r.t.name)).join(", ")}</p>` : ""}
+    </div>
+    ${monthTable(audits)}`;
+
+  $("content").querySelectorAll(".chip").forEach(b => b.onclick = () => { rankBy = b.dataset.rank; refresh(); });
+  const on = $("content").querySelector(".chip.on");
+  if (on) on.parentNode.scrollLeft = on.offsetLeft - on.parentNode.offsetLeft - 24;
+  $("content").querySelectorAll(".lb-row[data-teacher]").forEach(b => b.onclick = () => {
+    const t = TEACHERS.find(x => x.name === b.dataset.teacher);
+    if ($("centrePick").value !== ANY) $("centrePick").value = t.centre;
+    $("teacherPick").value = t.name;
+    refresh(); window.scrollTo(0, 0);
+  });
+}
+
+/* ---------------- month by month ---------------- */
+function monthTable(audits) {
+  const by = {};
+  audits.forEach(a => { const k = (a.date || "").slice(0, 7); if (k) (by[k] = by[k] || []).push(a); });
+  const keys = Object.keys(by).sort().reverse();
+  if (keys.length < 2) return "";
+  return `
+    <div class="card">
+      <h2>Month by month</h2>
+      <div class="months" role="table">
+        <div class="mrow mhead" role="row"><span role="columnheader">Month</span><span role="columnheader" class="num">Audits</span><span role="columnheader" class="num">Average</span><span role="columnheader"></span></div>
+        ${keys.map(k => {
+          const list = by[k];
+          const avg = mean(list.map(a => a.scorePct).filter(p => p != null).map(Number));
+          const ref = list.filter(a => a.referredToAcademic === "Yes").length;
+          return `<div class="mrow" role="row">
+            <span>${esc(monthLabel(k))}${ctx.isAuditor && ref ? `<small class="few" style="display:inline;margin-left:6px">${ref} referred</small>` : ""}</span>
+            <span class="num">${list.length}</span>
+            <span class="num"><span class="scorepill ${pillClass(avg)}">${pctText(avg)}</span></span>
+            <span class="track"><span class="fill" style="display:block;width:${avg || 0}%"></span></span>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
+/* ---------------- teacher view ---------------- */
+function sectionAverages(audits) {
+  return CHECKLIST.map(sec => {
+    const p = mean(audits.map(a => auditPct(a, sec.id)).filter(x => x != null));
+    return { sec, pct: p == null ? null : Math.round(p) };
+  });
+}
+
+function renderTeacher(teacher, audits, note = "") {
+  const c = centreOf(teacher.centre);
+  const self = !ctx.isAuditor;
+  audits = [...audits].sort((a, b) => (b.date + b.batchTime).localeCompare(a.date + a.batchTime));
+  const scored = audits.filter(a => a.scorePct != null);
+  const avg = mean(scored.map(a => Number(a.scorePct)));
+  const latest = scored[0], prev = scored[1];
+  const change = latest && prev ? Math.round((latest.scorePct - prev.scorePct) * 10) / 10 : null;
+  const batchNote = note ? " · " + note : "";
+
+  let html = `
+    <div class="card">
+      <h1>${self ? "Your audit scores" : esc(teacher.name)}</h1>
+      <div class="muted small">${self ? esc(teacher.name) + " · " : ""}${esc(teacher.course)} · ${esc(teacher.centre)}, ${esc(c ? c.city : "")}${esc(batchNote)}</div>
+      <div class="stats" style="margin:14px 0 0">
+        <div class="stat"><div class="v">${audits.length}</div><div class="k">Audits</div></div>
+        <div class="stat"><div class="v">${latest ? pctText(latest.scorePct) : "–"}</div><div class="k">Latest score</div></div>
+        <div class="stat"><div class="v">${pctText(avg)}</div><div class="k">Average score</div></div>
+        <div class="stat"><div class="v">${change == null ? "–" : (change > 0 ? "+" : "") + change}</div><div class="k">Change vs previous (pts)</div></div>
+      </div>
+    </div>`;
+
+  if (!audits.length) {
+    html += `<div class="card empty">${self ? "You don't have any audits yet." : "No audits for this teacher" + (note ? " for these filters." : " yet.")}</div>`;
+    $("content").innerHTML = html;
+    return;
+  }
+
+  html += `
+    <div class="card">
+      <h2>By section</h2>
+      <div class="muted small" style="margin:-8px 0 12px">Average across ${audits.length} audit${audits.length > 1 ? "s" : ""}</div>
+      <div class="bars">
+        ${sectionAverages(audits).map(({ sec, pct }) => `
+          <div class="barrow">
+            <span>${esc(sec.id)}. ${esc(SECTION_SHORT[sec.id])}</span>
+            <div class="track"><div class="fill" style="width:${pct || 0}%"></div></div>
+            <span class="val">${pct == null ? "N/A" : pct + "%"}</span>
+          </div>`).join("")}
+      </div>
+    </div>
+
+    ${monthTable(audits)}
+
+    <div class="card">
+      <h2>Audit history</h2>
+      ${audits.map((a, i) => renderAudit(a, i === 0)).join("")}
+    </div>`;
+  $("content").innerHTML = html;
+}
+
+function renderAudit(a, open) {
+  const bySec = CHECKLIST.map(sec => {
+    const items = (a.items || []).filter(it => it.id[0] === sec.id);
+    if (!items.length) return "";
+    return `<div class="sec-title">${esc(sec.id)}. ${esc(sec.title)}</div>` + items.map(it => `
+      <div class="ir">
+        <span class="id">${esc(it.id)}</span>
+        <span>${esc((ITEM_BY_ID[it.id] || {}).p || it.parameter || "")}</span>
+        <span class="tag ${tagClass(it.rating)}">${tagText(it.rating)}</span>
+        ${it.evidence ? `<span class="ev">${esc(it.evidence)}</span>` : ""}
+      </div>`).join("");
+  }).join("");
+
+  const referral = ctx.isAuditor && a.referredToAcademic === "Yes"
+    ? `<div class="note referred"><b>Referred to academic team</b>${
+        esc([a.autoReferralReason && "Automatic: " + a.autoReferralReason, a.auditorReferral === "Yes" && "Auditor: " + a.auditorReferralReason].filter(Boolean).join(" · "))}</div>`
+    : "";
+
+  return `
+    <details class="audit" ${open ? "open" : ""}>
+      <summary>
+        <div>
+          <div><b>${esc(fmtDate(a.date))}</b> · ${esc(a.batchTime || "")}</div>
+          <div class="meta">${esc(a.classType || "")} class · ${esc(a.batchType || "")} · audited by ${esc(a.auditor || "")}</div>
+        </div>
+        <span class="scorepill ${pillClass(a.scorePct)}">${pctText(a.scorePct)}</span>
+      </summary>
+      <div class="body">
+        <div class="meta">${esc(a.totalScore)} / ${esc(a.maxPossible)} points · ${esc(a.learnersPresent)} learner${a.learnersPresent == 1 ? "" : "s"} present</div>
+        ${referral}
+        <div class="note"><b>Top strength</b>${esc(a.topStrength)}</div>
+        <div class="note"><b>Top area to improve</b>${esc(a.topImprove)}</div>
+        ${bySec}
+      </div>
+    </details>`;
+}
+
+$("sampleBtn").onclick = () => {
+  allAudits.some(a => a.sample) ? App.clearPreview() : App.seedPreview();
+  load();
+};
+
+App.start("scores", c => {
+  ctx = c;
+  $("filterCard").hidden = true;
+  if (ctx.isAuditor) setupFilters();
+  load();
+});
+</script>
+</body>
+</html>
