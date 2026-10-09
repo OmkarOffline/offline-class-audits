@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Class Audits | Artium Academy</title>
-<link rel="stylesheet" href="styles.css?v=20261009c">
+<link rel="stylesheet" href="styles.css?v=20261009e">
 </head>
 <body>
 
@@ -44,8 +44,8 @@
   </section>
 </main>
 
-<script src="config.js?v=20261009c"></script>
-<script src="common.js?v=20261009c"></script>
+<script src="config.js?v=20261009e"></script>
+<script src="common.js?v=20261009e"></script>
 <script>
 let ctx = null, audits = [], view = "course";
 const TARGET = AUDITS_PER_TEACHER_PER_MONTH;
@@ -62,9 +62,9 @@ const pill = p => p == null ? "" : `<span class="scorepill ${p >= 80 ? "sp-good"
 const shortDate = iso => iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
 const key = t => t.name + "|" + t.centre;
 
-const isReviewer = () => ctx.auditors.some(a => a.centre === ALL);
+const isReviewer = () => ctx.allCentres;
 function myCentres() {
-  return ctx.auditors.some(a => a.centre === ALL) ? CENTRES.map(c => c.name) : [...new Set(ctx.auditors.map(a => a.centre))];
+  return ctx.viewCentres;
 }
 function teachersIn(centres) { return TEACHERS.filter(t => centres.includes(t.centre)); }
 function thisMonth(list) { return list.filter(a => (a.date || "").startsWith(MONTH_KEY)); }
@@ -74,11 +74,11 @@ function render() {
   const centres = myCentres();
   const teachers = teachersIn(centres);
   const month = thisMonth(audits);
-  const first = (ctx.auditors[0] || {}).name || "";
+  const first = (ctx.auditors[0] || ctx.people[0] || {}).name || "";
 
   $("monthLabel").textContent = MONTH_NAME;
   $("hello").textContent = "Hi, " + first.split(" ")[0];
-  $("scopeLabel").textContent = isReviewer() ? "Reviewer · All centres" : `${centres[0]}, ${centreOf(centres[0]).city}`;
+  $("scopeLabel").textContent = isReviewer() ? (ctx.isAuditor ? "Reviewer · All centres" : "Reviewer (view only) · All centres") : `${centres[0]}, ${centreOf(centres[0]).city}`;
 
   renderTodo(centres, teachers, month);
   renderCentres(centres, month);
@@ -221,8 +221,9 @@ $("centreFilter").onchange = renderTable;
 document.addEventListener("visibilitychange", () => { if (!document.hidden && ctx) load(); });
 
 App.start("home", c => {
-  if (!c.isAuditor) { location.replace("scores.html"); return; }   // teachers only see their own scores
+  if (!c.canView) { location.replace("scores.html"); return; }   // teachers only see their own scores
   ctx = c;
+  document.querySelector(".start-btn").hidden = !ctx.isAuditor;      // view-only reviewers can't start audits
   const centres = myCentres();
   // Reviewers see the centre overview first, then the coverage list.
   if (isReviewer()) $("centreCards").after($("todoCard"));

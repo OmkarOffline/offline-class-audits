@@ -182,6 +182,7 @@ const App = (() => {
       const opt = p => `<option value="${esc(p.name)}">${esc(p.name)} · ${esc(p.role)}${p.centre === ALL ? "" : ", " + esc(p.centre)}</option>`;
       $("previewAs").innerHTML =
         `<optgroup label="Auditors">${AUDITORS.map(opt).join("")}</optgroup>` +
+        `<optgroup label="Reviewers (read-only)">${REVIEWERS.map(opt).join("")}</optgroup>` +
         `<optgroup label="Teachers">${TEACHERS.map(opt).join("")}</optgroup>`;
       $("previewGo").onclick = () => {
         const p = TEAM.find(x => x.name === $("previewAs").value);
@@ -231,7 +232,11 @@ const App = (() => {
       teacher: people.find(p => p.audit === "Auditee") || null
     };
     ctx.isAuditor = ctx.auditors.length > 0;
-    $("nav").hidden = !ctx.isAuditor;
+    ctx.isReviewer = people.some(p => p.audit === "Reviewer");          // read-only, every centre
+    ctx.canView = ctx.isAuditor || ctx.isReviewer;                       // can see other people's audits
+    ctx.allCentres = ctx.isReviewer || ctx.auditors.some(a => a.centre === ALL);
+    ctx.viewCentres = ctx.allCentres ? CENTRES.map(c => c.name) : [...new Set(ctx.auditors.map(a => a.centre))];
+    $("nav").hidden = !ctx.canView;
     if (pending) { const fn = pending; pending = null; showOnly("page"); fn(); return; }
     showOnly("page");
     onReady(ctx);
@@ -252,10 +257,8 @@ const App = (() => {
     }
     if (action === "audits") {
       let rows;
-      if (ctx.isAuditor) {
-        const all = ctx.auditors.some(a => a.centre === ALL);
-        const centres = ctx.auditors.map(a => a.centre);
-        rows = db.filter(r => all || centres.includes(r.centre));
+      if (ctx.canView) {
+        rows = db.filter(r => ctx.viewCentres.includes(r.centre));
       } else if (ctx.teacher) {
         rows = db.filter(r => r.teacher === ctx.teacher.name && r.centre === ctx.teacher.centre).map(forTeacher);
       } else rows = [];

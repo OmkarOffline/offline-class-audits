@@ -24,7 +24,7 @@ const TEAM = [
   { name: "Padma Priya",      role: "Centre Manager",             centre: "Thoraipakkam",  course: "",               email: "padma@artiumacademy.com",          audit: "Auditor" },
   { name: "Dipali Modhvadia", role: "Centre Manager",             centre: "Borewell Road", course: "",               email: "dipali@artiumacademy.com",         audit: "Auditor" },
   { name: "Poojalakshmi R",   role: "Academic Counsellor",        centre: "Alwarpet",      course: "",               email: "poojalakshmi@artiumacademy.com",   audit: "Auditor" },
-  { name: "Devika Dev",       role: "Academic Counsellor",        centre: "Thoraipakkam",  course: "",               email: "poojalakshmi@artiumacademy.com",   audit: "Auditor" },
+  { name: "Devika Dev",       role: "Academic Counsellor",        centre: "Thoraipakkam",  course: "",               email: "devikadev@artiumacademy.com",   audit: "Auditor" },
   { name: "Sneha KS",         role: "Academic Counsellor",        centre: "Borewell Road", course: "",               email: "sneha.ks@artiumacademy.com",       audit: "Auditor" },
   { name: "Pooja Jagan",      role: "Teacher", centre: "Alwarpet",      course: "South Vocals",   email: "pooja.j@artiumacademy.com",       audit: "Auditee" },
   { name: "Anila Raman",      role: "Teacher", centre: "Alwarpet",      course: "South Vocals",   email: "anila@artiumacademy.com",         audit: "Auditee" },
@@ -45,7 +45,22 @@ const TEAM = [
   { name: "Joel Devraj",      role: "Teacher", centre: "Borewell Road", course: "Keyboard",       email: "joel@artiumacademy.com",          audit: "Auditee" },
   { name: "Gagan Kumar",      role: "Teacher", centre: "Borewell Road", course: "Guitar",         email: "gagan@artiumacademy.com",         audit: "Auditee" }
 ];
+/* Read-only reviewers: Academics Team + Teacher Training Team tabs. They can sign in and see every
+   centre's scores but can't fill audits. Keep in step with those tabs (the server reads them directly). */
+TEAM.push(
+  { name: "Abhijit Patil",        role: "Head of Academics",       centre: ALL, course: "All Courses | North Vocals",          email: "abhijit@artiumacademy.com",   audit: "Reviewer" },
+  { name: "Sanjeevani Jain",      role: "VP - Academics",          centre: ALL, course: "All Courses",                         email: "sanjeevani@artiumacademy.com", audit: "Reviewer" },
+  { name: "Nithya Sudhir",        role: "Co-Founder",              centre: ALL, course: "All Courses",                         email: "nithya@artiumacademy.com",    audit: "Reviewer" },
+  { name: "Pallavi Mulay",        role: "Product-Academics",       centre: ALL, course: "All Courses",                         email: "pallavi@artiumacademy.com",   audit: "Reviewer" },
+  { name: "Pritesh Visave",       role: "Category Manager",        centre: ALL, course: "Guitar | Keyboard",                   email: "pritesh@artiumacademy.com",   audit: "Reviewer" },
+  { name: "Sidhi Krishnamoorthy", role: "Category Manager",        centre: ALL, course: "South Vocals",                        email: "sidhi@artiumacademy.com",     audit: "Reviewer" },
+  { name: "Rachel Dohling",       role: "Category Manager",        centre: ALL, course: "Western Vocals",                      email: "rachel@artiumacademy.com",    audit: "Reviewer" },
+  { name: "Priya Trivedi",        role: "Head - Teacher Training", centre: ALL, course: "All Courses",                         email: "priya.t@artiumacademy.com",   audit: "Reviewer" },
+  { name: "Vedashree Juvekar",    role: "Teacher Trainer",         centre: ALL, course: "Western Vocals | Guitar | Keyboard",  email: "vedashree@artiumacademy.com", audit: "Reviewer" },
+  { name: "Sony S",               role: "Teacher Trainer",         centre: ALL, course: "South Vocals | North Vocals",         email: "sony@artiumacademy.com",      audit: "Reviewer" }
+);
 const AUDITORS = TEAM.filter(p => p.audit === "Auditor");
+const REVIEWERS = TEAM.filter(p => p.audit === "Reviewer");
 const TEACHERS = TEAM.filter(p => p.audit === "Auditee");
 const BATCH_TYPES = ["Kids", "Adults", "Mixed"];
 // Centre hours by weekday (0 = Sunday). null = weekly off. Batches run hourly within these hours.

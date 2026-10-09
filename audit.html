@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>New Audit | Artium Academy</title>
-<link rel="stylesheet" href="styles.css?v=20261009c">
+<link rel="stylesheet" href="styles.css?v=20261009e">
 </head>
 <body>
 
@@ -138,8 +138,8 @@
   </div>
 </main>
 
-<script src="config.js?v=20261009c"></script>
-<script src="common.js?v=20261009c"></script>
+<script src="config.js?v=20261009e"></script>
+<script src="common.js?v=20261009e"></script>
 <script>
 const DRAFT_KEY = "artium-class-audit-draft-v1";
 let ctx = null;      // signed-in user: { session, people, auditors, teacher, isAuditor }
@@ -444,7 +444,7 @@ $("discardDraft").addEventListener("click", () => { store.del(DRAFT_KEY); resetF
 $("newAuditBtn").addEventListener("click", () => { resetForm(); showForm(); window.scrollTo(0, 0); });
 
 App.start("audit", c => {
-  if (!c.isAuditor) { location.replace("scores.html"); return; }   // teachers only see their scores
+  if (!c.isAuditor) { location.replace(c.canView ? "index.html" : "scores.html"); return; }   // only auditors fill audits
   ctx = c;
   initDetails();
   showForm();
