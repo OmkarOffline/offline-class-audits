@@ -38,6 +38,7 @@
       <button type="button" role="tab" class="chip on" data-view="course">Course</button>
       <button type="button" role="tab" class="chip" data-view="batch">Batch type</button>
       <button type="button" role="tab" class="chip" data-view="teacher">Teacher</button>
+      <button type="button" role="tab" class="chip" data-view="auditor">Auditor</button>
     </div>
     <div class="table-wrap" id="detailTable"></div>
   </section>
@@ -47,6 +48,7 @@
 <script src="common.js?v=20261009b"></script>
 <script>
 let ctx = null, audits = [], view = "course";
+const TARGET = AUDITS_PER_TEACHER_PER_MONTH;
 const ANY = "__all";
 
 const now = new Date();
@@ -60,6 +62,7 @@ const pill = p => p == null ? "" : `<span class="scorepill ${p >= 80 ? "sp-good"
 const shortDate = iso => iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
 const key = t => t.name + "|" + t.centre;
 
+const isReviewer = () => ctx.auditors.some(a => a.centre === ALL);
 function myCentres() {
   return ctx.auditors.some(a => a.centre === ALL) ? CENTRES.map(c => c.name) : [...new Set(ctx.auditors.map(a => a.centre))];
 }
@@ -75,60 +78,73 @@ function render() {
 
   $("monthLabel").textContent = MONTH_NAME;
   $("hello").textContent = "Hi, " + first.split(" ")[0];
-  $("scopeLabel").textContent = centres.length > 1 ? "All centres" : `${centres[0]}, ${centreOf(centres[0]).city}`;
+  $("scopeLabel").textContent = isReviewer() ? "Reviewer · All centres" : `${centres[0]}, ${centreOf(centres[0]).city}`;
 
   renderTodo(centres, teachers, month);
   renderCentres(centres, month);
   renderTable();
 }
 
+/* Audits each teacher has had this month (by teacher|centre). */
+function countsFor(month) {
+  const c = {};
+  month.forEach(a => { const k = a.teacher + "|" + a.centre; c[k] = (c[k] || 0) + 1; });
+  return c;
+}
+/* Audits that count towards the monthly target: at most TARGET per teacher. */
+const towardsTarget = (teachers, counts) => teachers.reduce((s, t) => s + Math.min(counts[key(t)] || 0, TARGET), 0);
+
 function renderTodo(centres, teachers, month) {
-  const done = new Set(month.map(a => a.teacher + "|" + a.centre));
+  const counts = countsFor(month);
   const lastAudit = {};
   audits.forEach(a => { const k = a.teacher + "|" + a.centre; if (!lastAudit[k] || a.date > lastAudit[k]) lastAudit[k] = a.date; });
-  const pending = teachers.filter(t => !done.has(key(t)))
-    .sort((a, b) => (lastAudit[key(a)] || "").localeCompare(lastAudit[key(b)] || "") || a.name.localeCompare(b.name));
-  const doneCount = teachers.length - pending.length;
+  const pending = teachers.filter(t => (counts[key(t)] || 0) < TARGET)
+    .sort((a, b) => (counts[key(a)] || 0) - (counts[key(b)] || 0)
+      || (lastAudit[key(a)] || "").localeCompare(lastAudit[key(b)] || "") || a.name.localeCompare(b.name));
+  const target = teachers.length * TARGET, done = towardsTarget(teachers, counts), left = target - done;
 
-  $("todoBar").style.width = teachers.length ? (doneCount / teachers.length * 100) + "%" : "0%";
-  $("todoMeta").textContent = `${doneCount} of ${teachers.length} audited · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left in ${now.toLocaleDateString("en-IN", { month: "long" })}`;
+  $("todoBar").style.width = target ? (done / target * 100) + "%" : "0%";
+  $("todoMeta").textContent = `${done} of ${target} audits done · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left in ${now.toLocaleDateString("en-IN", { month: "long" })}`;
 
   if (!pending.length) {
-    $("todoTitle").textContent = "Every teacher has been audited this month";
-    $("todoList").innerHTML = `<p class="muted" style="margin:6px 0 0">Nice work. New audits this month will still show in the overview below.</p>`;
+    $("todoTitle").textContent = `Every teacher has had ${TARGET} audits this month`;
+    $("todoList").innerHTML = `<p class="muted" style="margin:6px 0 0">Nice work. Any further audits this month still show in the overview.</p>`;
     return;
   }
-  $("todoTitle").textContent = `You are yet to audit ${pending.length} teacher${pending.length > 1 ? "s" : ""} this month`;
+  const n = `${left} audit${left > 1 ? "s" : ""} left this month`;
+  $("todoTitle").textContent = isReviewer() ? `${n} across ${pending.length} teacher${pending.length > 1 ? "s" : ""}` : `You have ${n}`;
   const groups = centres.map(c => ({ c, list: pending.filter(t => t.centre === c) })).filter(g => g.list.length);
   $("todoList").innerHTML = groups.map(g => `
     ${centres.length > 1 ? `<div class="todo-centre">${esc(g.c)}</div>` : ""}
     <ul class="todo-list">
       ${g.list.map(t => {
-        const last = lastAudit[key(t)];
+        const n = counts[key(t)] || 0;
         return `<li>
           <span class="todo-name"><b>${esc(t.name)}</b><small>${esc(t.course)}</small></span>
-          <span class="todo-last ${last ? "" : "never"}">${last ? "Last: " + esc(shortDate(last)) : "Never audited"}</span>
+          <span class="count c${n}" title="${n} of ${TARGET} audits this month">${n}/${TARGET}</span>
         </li>`;
       }).join("")}
     </ul>`).join("");
 }
 
 function renderCentres(centres, month) {
+  const counts = countsFor(month);
   $("centreCards").innerHTML = centres.map(c => {
     const ts = TEACHERS.filter(t => t.centre === c);
     const list = month.filter(a => a.centre === c);
-    const covered = new Set(list.map(a => a.teacher)).size;
+    const target = ts.length * TARGET, done = towardsTarget(ts, counts);
+    const full = ts.filter(t => (counts[key(t)] || 0) >= TARGET).length;
     const ref = list.filter(a => a.referredToAcademic === "Yes").length;
     const a = avg(list);
     return `<article class="card centre-card">
       <div class="centre-top"><h3>${esc(c)}</h3><span class="muted small">${esc(centreOf(c).city)}</span></div>
       <div class="kpis">
-        <div><div class="v">${list.length}</div><div class="k">Audits</div></div>
-        <div><div class="v">${covered}<small>/${ts.length}</small></div><div class="k">Teachers audited</div></div>
+        <div><div class="v">${done}<small>/${target}</small></div><div class="k">Audits done</div></div>
+        <div><div class="v">${full}<small>/${ts.length}</small></div><div class="k">Teachers at ${TARGET}/${TARGET}</div></div>
         <div><div class="v">${a == null ? "–" : pct(a)}</div><div class="k">Average score</div></div>
         <div><div class="v ${ref ? "warn" : ""}">${ref}</div><div class="k">Referred</div></div>
       </div>
-      <div class="progress" aria-hidden="true"><span style="width:${ts.length ? covered / ts.length * 100 : 0}%"></span></div>
+      <div class="progress" aria-hidden="true"><span style="width:${target ? done / target * 100 : 0}%"></span></div>
     </article>`;
   }).join("");
 }
@@ -144,12 +160,12 @@ function renderTable() {
 
   if (view === "course") {
     const courses = [...new Set(teachers.map(t => t.course))].sort();
-    head = ["Course", "Teachers", "Audited", "Audits", "Average"];
+    head = ["Course", "Teachers", "Audits done", "Average"];
+    const counts = countsFor(month);
     rows = courses.map(c => {
       const ts = teachers.filter(t => t.course === c);
       const list = month.filter(a => a.course === c);
-      const covered = new Set(list.map(a => a.teacher + "|" + a.centre)).size;
-      return [esc(c), ts.length, `${covered} / ${ts.length}`, list.length, pill(avg(list)) || "–"];
+      return [esc(c), ts.length, `${towardsTarget(ts, counts)} / ${ts.length * TARGET}`, pill(avg(list)) || "–"];
     });
   } else if (view === "batch") {
     head = ["Batch type", "Audits", "Teachers covered", "Average"];
@@ -157,13 +173,23 @@ function renderTable() {
       const list = month.filter(a => a.batchType === b);
       return [esc(b), list.length, new Set(list.map(a => a.teacher + "|" + a.centre)).size, pill(avg(list)) || "–"];
     });
+  } else if (view === "auditor") {
+    head = ["Auditor", "Centre", "Audits", "Teachers covered", "Average given", "Latest"];
+    const people = AUDITORS.filter(a => a.centre === ALL || scope.includes(a.centre));
+    rows = people.map(a => {
+      const list = month.filter(x => (x.auditor || "").replace(/ \(sample\)$/, "") === a.name);
+      const latest = list.map(x => x.date).sort().pop();
+      return [esc(a.name), esc(a.centre), list.length || `<span class="muted">0</span>`,
+              new Set(list.map(x => x.teacher + "|" + x.centre)).size, pill(avg(list)) || "–",
+              latest ? esc(shortDate(latest)) : `<span class="muted">–</span>`];
+    }).sort((x, y) => (parseInt(String(y[2])) || 0) - (parseInt(String(x[2])) || 0));
   } else {
     head = ["Teacher", "Course", ...(multi ? ["Centre"] : []), "Audits", "Average", "Latest"];
     rows = teachers.slice().sort((a, b) => a.centre.localeCompare(b.centre) || a.name.localeCompare(b.name)).map(t => {
       const list = month.filter(a => a.teacher === t.name && a.centre === t.centre);
       const latest = list.map(a => a.date).sort().pop();
       return [`<a href="scores.html?teacher=${encodeURIComponent(t.name)}">${esc(t.name)}</a>`, esc(t.course), ...(multi ? [esc(t.centre)] : []),
-              list.length || `<span class="muted">0</span>`, pill(avg(list)) || "–", latest ? esc(shortDate(latest)) : `<span class="muted">–</span>`];
+              `<span class="count c${Math.min(list.length, TARGET)}">${list.length}/${TARGET}</span>`, pill(avg(list)) || "–", latest ? esc(shortDate(latest)) : `<span class="muted">–</span>`];
     });
   }
   const isNum = i => i > 0 && !["Course", "Centre"].includes(head[i]);
@@ -198,6 +224,8 @@ App.start("home", c => {
   if (!c.isAuditor) { location.replace("scores.html"); return; }   // teachers only see their own scores
   ctx = c;
   const centres = myCentres();
+  // Reviewers see the centre overview first, then the coverage list.
+  if (isReviewer()) $("centreCards").after($("todoCard"));
   $("centreFilter").hidden = centres.length < 2;
   $("centreFilter").innerHTML = `<option value="${ANY}">All centres</option>` + centres.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   load();

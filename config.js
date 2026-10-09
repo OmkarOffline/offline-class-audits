@@ -51,6 +51,9 @@ const BATCH_TYPES = ["Kids", "Adults", "Mixed"];
 // Centre hours by weekday (0 = Sunday). null = weekly off. Batches run hourly within these hours.
 const HOURS = { 0: [8, 16], 1: null, 2: [13, 21], 3: [13, 21], 4: [13, 21], 5: [13, 21], 6: [13, 21] };
 
+/* Every teacher should be audited this many times a month (drives the home page targets). */
+const AUDITS_PER_TEACHER_PER_MONTH = 2;
+
 /* Leaderboard weighting. Each teacher's average is blended with the overall average as if they
    had this many extra audits at the overall average, so a teacher with one great audit can't top
    the board. The more audits a teacher has, the closer their weighted score gets to their own average. */

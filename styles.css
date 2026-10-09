@@ -243,3 +243,7 @@
   .tbl tbody tr:hover{background:var(--bg)}
   .tbl a{color:var(--accent);text-decoration:none;font-weight:600}
   .tbl a:hover{text-decoration:underline}
+  .count{display:inline-block;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;border-radius:999px;padding:3px 10px;flex:0 0 auto}
+  .count.c0{background:var(--mid-soft);color:var(--mid)}
+  .count.c1{background:var(--accent-soft);color:var(--accent)}
+  .count.c2{background:var(--ok-soft);color:var(--ok)}
