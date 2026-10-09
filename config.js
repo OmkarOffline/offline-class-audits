@@ -3,7 +3,7 @@
    ========================================================= */
 const CONFIG = {
   GOOGLE_CLIENT_ID: "353541612670-tr8iqd78in1tcv2j99ibrp4tj1ujd31u.apps.googleusercontent.com",
-  APPS_SCRIPT_URL: "",           // e.g. "https://script.google.com/macros/s/XXXX/exec"
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxya0FEPSFm1URSvlvECee1NDpfuP3aM9AxqgqTzF7NOD4vrUSCy4yPsl0lad9P_3RWOg/exec",
   ALLOWED_DOMAIN: "artiumacademy.com"
 };
 
