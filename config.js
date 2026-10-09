@@ -2,7 +2,7 @@
    CONFIG — shared by every page. Fill these in before going live (see SETUP.md)
    ========================================================= */
 const CONFIG = {
-  GOOGLE_CLIENT_ID: "",          // e.g. "1234-abc.apps.googleusercontent.com"
+  GOOGLE_CLIENT_ID: "353541612670-tr8iqd78in1tcv2j99ibrp4tj1ujd31u.apps.googleusercontent.com",
   APPS_SCRIPT_URL: "",           // e.g. "https://script.google.com/macros/s/XXXX/exec"
   ALLOWED_DOMAIN: "artiumacademy.com"
 };
