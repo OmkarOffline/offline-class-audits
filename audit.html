@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>New Audit | Artium Academy</title>
-<link rel="stylesheet" href="styles.css?v=20261009e">
+<link rel="stylesheet" href="styles.css?v=20261009f">
 </head>
 <body>
 
@@ -102,14 +102,14 @@
           <div class="autoref" id="autoRef"></div>
         </div>
         <div class="full">
-          <span class="f" style="display:block;font-size:13px;font-weight:600;margin-bottom:4px">Do you also want to refer this class to the academic team? <span style="color:var(--bad)">*</span></span>
+          <span class="f" style="display:block;font-size:13px;font-weight:600;margin-bottom:4px">Do you want to flag this teacher? <span style="color:var(--bad)">*</span></span>
           <div class="seg" id="referGroup">
             <label><input type="radio" name="refer" value="No"> No</label>
             <label><input type="radio" name="refer" value="Yes"> Yes</label>
           </div>
         </div>
         <div class="full" id="reasonWrap" hidden>
-          <label class="f" for="reason">Your reason for referral <span class="req">*</span></label>
+          <label class="f" for="reason">Why are you flagging this teacher? <span class="req">*</span></label>
           <textarea id="reason" name="reason"></textarea>
         </div>
       </div>
@@ -138,8 +138,8 @@
   </div>
 </main>
 
-<script src="config.js?v=20261009e"></script>
-<script src="common.js?v=20261009e"></script>
+<script src="config.js?v=20261009f"></script>
+<script src="common.js?v=20261009f"></script>
 <script>
 const DRAFT_KEY = "artium-class-audit-draft-v1";
 let ctx = null;      // signed-in user: { session, people, auditors, teacher, isAuditor }
@@ -280,8 +280,8 @@ function updateScore() {
   const ar = $("autoRef");
   ar.classList.toggle("on", s.autoRefer);
   ar.innerHTML = s.autoRefer
-    ? `<b>This audit will be sent to the academic team automatically</b>Reason: ${esc(s.autoReasons.join(" and "))}.`
-    : `<b>Automatic referral: not triggered</b>Audits are sent to the academic team automatically if the score is below ${REFERRAL_RULES.minScorePct}% or ${REFERRAL_RULES.zeroRatingsLimit} or more items are rated 0.`;
+    ? `<b>This teacher will be flagged automatically</b>Reason: ${esc(s.autoReasons.join(" and "))}.`
+    : `<b>Not flagged automatically</b>A teacher is flagged automatically, and the academic and teacher training teams are emailed, if the score is below ${REFERRAL_RULES.minScorePct}% or ${REFERRAL_RULES.zeroRatingsLimit} or more items are rated 0.`;
   CHECKLIST.forEach(sec => {
     let t = 0, m = 0, done = 0;
     sec.items.forEach(it => { const r = rating(it.id); if (r) { done++; if (r !== "NA") { t += +r; m += 2; } } });
@@ -403,7 +403,7 @@ function showDone(p) {
   $("doneText").textContent = `${p.teacher} · ${p.course} · ${p.centre} · ${p.date} — ${p.totalScore} / ${p.maxPossible}`;
   $("donePreview").hidden = !App.previewData;
   $("scoresLink").href = "scores.html?teacher=" + encodeURIComponent(p.teacher);
-  if (p.referredToAcademic === "Yes") $("doneText").textContent += " · Sent to the academic team.";
+  if (p.referredToAcademic === "Yes") $("doneText").textContent += " · Flagged to the academic and teacher training teams.";
   window.scrollTo(0, 0);
 }
 
