@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Audit Scores | Artium Academy</title>
-<link rel="stylesheet" href="styles.css?v=20261009f">
+<link rel="stylesheet" href="styles.css?v=20261012a">
 </head>
 <body>
 
@@ -53,8 +53,8 @@
   <div id="content"></div>
 </main>
 
-<script src="config.js?v=20261009f"></script>
-<script src="common.js?v=20261009f"></script>
+<script src="config.js?v=20261012a"></script>
+<script src="common.js?v=20261012a"></script>
 <script>
 const ANY = "__all";
 let ctx = null;
@@ -63,7 +63,7 @@ let rankBy = "overall";
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 const SECTION_SHORT = Object.fromEntries(CHECKLIST.map(s => [s.id, s.title.replace(/ \(.*\)$/, "")]));
 
-const pillClass = p => p == null ? "sp-mid" : p >= 80 ? "sp-good" : p >= REFERRAL_RULES.minScorePct ? "sp-mid" : "sp-low";
+const pillClass = p => { const b = scoreBand(p); return b ? "sp-" + b.key : "sp-average"; };
 const tagClass = r => ({ "2": "t2", "1": "t1", "0": "t0" }[String(r)] || "tna");
 const tagText = r => ({ "2": "2 · Consistently", "1": "1 · Partly", "0": "0 · Not observed" }[String(r)] || "N/A");
 const pctText = p => p == null ? "–" : (Math.round(p * 10) / 10) + "%";

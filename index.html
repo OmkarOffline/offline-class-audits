@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261009f">
+<link rel="stylesheet" href="styles.css?v=20261012a">
 </head>
 <body>
 
@@ -21,18 +21,39 @@
     <a class="btn start-btn" href="audit.html">Start New Audit</a>
   </section>
 
-  <section class="card todo" id="todoCard">
-    <div class="todo-head">
-      <h2 id="todoTitle">You are yet to audit these teachers this month</h2>
-      <span class="muted small" id="todoMeta"></span>
-    </div>
-    <div class="progress" aria-hidden="true"><span id="todoBar"></span></div>
-    <div id="todoList"></div>
-  </section>
-
   <section class="centres" id="centresSection">
     <div class="sechead"><h2>Centres this month</h2><span id="centresMeta"></span></div>
     <div id="centreCards" class="centre-grid"></div>
+  </section>
+
+  <section class="overview" id="overviewSection">
+    <div class="sechead"><h2>Audit Overview</h2>
+      <span class="sechead-r"><span id="ovMonth"></span>
+        <span class="bands-wrap">
+          <button type="button" class="bands-btn" id="bandsBtn" aria-expanded="false" aria-controls="bandsPop">ⓘ Score bands</button>
+          <div class="bands-pop" id="bandsPop" hidden>
+            <div class="bands-title">Score bands</div>
+            <ul class="bands-list">
+              <li><i class="b-poor"></i>Poor · up to 40%</li>
+              <li><i class="b-average"></i>Average · 41–60%</li>
+              <li><i class="b-good"></i>Good · 61–90%</li>
+              <li><i class="b-excellent"></i>Excellent · 91–100%</li>
+              <li><i class="b-done"></i>Audit done</li>
+              <li><i class="b-pending"></i>Audit pending</li>
+            </ul>
+          </div>
+        </span>
+      </span>
+    </div>
+    <div class="ov-panel" id="ovPanel">
+      <div class="ov-sum">
+        <div class="ov-big"><b id="ovLeft">–</b><span id="ovLeftText">Loading audits…</span></div>
+        <span class="ov-pace" id="ovPace" hidden></span>
+      </div>
+      <div class="ov-bar" aria-hidden="true"><i id="ovFill"></i><em id="ovMark"></em></div>
+      <div class="ov-barlbl"><span id="ovDone"></span><span class="g" id="ovMarkLbl"></span><span id="ovDays"></span></div>
+      <div class="ov-cols" id="ovCols"></div>
+    </div>
   </section>
 
   <section class="card">
@@ -50,8 +71,8 @@
   </section>
 </main>
 
-<script src="config.js?v=20261009f"></script>
-<script src="common.js?v=20261009f"></script>
+<script src="config.js?v=20261012a"></script>
+<script src="common.js?v=20261012a"></script>
 <script>
 let ctx = null, audits = [], view = "course";
 const TARGET = AUDITS_PER_TEACHER_PER_MONTH;
@@ -64,7 +85,7 @@ const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - 
 
 const avg = list => { const v = list.map(a => a.scorePct).filter(p => p != null && p !== "").map(Number); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
 const pct = p => p == null ? "–" : (Math.round(p * 10) / 10) + "%";
-const pill = p => p == null ? "" : `<span class="scorepill ${p >= 80 ? "sp-good" : p >= REFERRAL_RULES.minScorePct ? "sp-mid" : "sp-low"}">${pct(p)}</span>`;
+const pill = p => { const b = scoreBand(p); return b ? `<span class="scorepill sp-${b.key}">${pct(p)}</span>` : ""; };
 const shortDate = iso => iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
 const key = t => t.name + "|" + t.centre;
 
@@ -100,37 +121,57 @@ function countsFor(month) {
 /* Audits that count towards the monthly target: at most TARGET per teacher. */
 const towardsTarget = (teachers, counts) => teachers.reduce((s, t) => s + Math.min(counts[key(t)] || 0, TARGET), 0);
 
+const initials = n => n.split(/\s+/).filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
 function renderTodo(centres, teachers, month) {
   const counts = countsFor(month);
-  const lastAudit = {};
-  audits.forEach(a => { const k = a.teacher + "|" + a.centre; if (!lastAudit[k] || a.date > lastAudit[k]) lastAudit[k] = a.date; });
-  const pending = teachers.filter(t => (counts[key(t)] || 0) < TARGET)
-    .sort((a, b) => (counts[key(a)] || 0) - (counts[key(b)] || 0)
-      || (lastAudit[key(a)] || "").localeCompare(lastAudit[key(b)] || "") || a.name.localeCompare(b.name));
   const target = teachers.length * TARGET, done = towardsTarget(teachers, counts), left = target - done;
+  const teachersLeft = teachers.filter(t => (counts[key(t)] || 0) < TARGET).length;
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const expected = Math.floor(target * now.getDate() / daysInMonth);
+  const monthName = now.toLocaleDateString("en-IN", { month: "long" });
 
-  $("todoBar").style.width = target ? (done / target * 100) + "%" : "0%";
-  $("todoMeta").textContent = `${done} of ${target} audits done · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left in ${now.toLocaleDateString("en-IN", { month: "long" })}`;
+  $("ovMonth").textContent = MONTH_NAME;
+  $("ovLeft").textContent = left;
+  $("ovLeftText").innerHTML = left
+    ? `audit${left === 1 ? "" : "s"} left this month across <strong>${teachersLeft} teacher${teachersLeft === 1 ? "" : "s"}</strong>`
+    : `audits left. <strong>Every teacher has had ${TARGET} audits this month.</strong>`;
+  const pace = $("ovPace");
+  pace.hidden = false;
+  if (!left) { pace.className = "ov-pace on"; pace.textContent = "Monthly target met"; }
+  else if (done >= expected) { pace.className = "ov-pace on"; pace.textContent = "On track"; }
+  else { const short = expected - done; pace.className = "ov-pace behind"; pace.textContent = `Behind pace · ${short} audit${short === 1 ? "" : "s"} short`; }
+  $("ovFill").style.width = target ? (done / target * 100) + "%" : "0%";
+  $("ovMark").style.left = target ? (expected / target * 100) + "%" : "0%";
+  $("ovMark").hidden = !left;
+  $("ovDone").textContent = `${done} of ${target} done`;
+  $("ovMarkLbl").textContent = left ? `▲ ${expected} by today keeps you on track` : "";
+  $("ovDays").textContent = `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in ${monthName}`;
 
-  if (!pending.length) {
-    $("todoTitle").textContent = `Every teacher has had ${TARGET} audits this month`;
-    $("todoList").innerHTML = `<p class="muted" style="margin:6px 0 0">Nice work. Any further audits this month still show in the overview.</p>`;
-    return;
-  }
-  const n = `${left} audit${left > 1 ? "s" : ""} left this month`;
-  $("todoTitle").textContent = isReviewer() ? `${n} across ${pending.length} teacher${pending.length > 1 ? "s" : ""}` : `You have ${n}`;
-  const groups = centres.map(c => ({ c, list: pending.filter(t => t.centre === c) })).filter(g => g.list.length);
-  $("todoList").innerHTML = groups.map(g => `
-    ${centres.length > 1 ? `<div class="todo-centre">${esc(g.c)}</div>` : ""}
-    <ul class="todo-list">
-      ${g.list.map(t => {
-        const n = counts[key(t)] || 0;
-        return `<li>
-          <span class="todo-name"><b>${esc(t.name)}</b><small>${esc(t.course)}</small></span>
-          <span class="count c${n}" title="${n} of ${TARGET} audits this month">${n}/${TARGET}</span>
-        </li>`;
+  // Each teacher's average this month (one audit's score, or the average of both).
+  const scores = {};
+  month.forEach(a => { if (a.scorePct == null || a.scorePct === "") return; (scores[a.teacher + "|" + a.centre] = scores[a.teacher + "|" + a.centre] || []).push(Number(a.scorePct)); });
+  const avgOf = t => { const v = scores[key(t)]; return v && v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length * 10) / 10 : null; };
+
+  $("ovCols").style.setProperty("--cols", Math.min(centres.length, 3));
+  $("ovCols").innerHTML = centres.map(c => {
+    const ts = teachers.filter(t => t.centre === c).map(t => ({ t, n: counts[key(t)] || 0, a: avgOf(t) }));
+    ts.sort((x, y) => (x.a == null) - (y.a == null) || (y.a ?? 0) - (x.a ?? 0) || x.t.name.localeCompare(y.t.name));
+    const complete = ts.filter(r => r.n >= TARGET).length;
+    return `<div class="ov-col">
+      <div class="ov-colhead"><div><div class="ccard-city">${esc(centreOf(c).city)}</div><div class="ov-cname">${esc(c)}</div></div>
+        <span class="ov-count">${complete} of ${ts.length} complete</span></div>
+      ${ts.map(({ t, n, a }) => {
+        const b = scoreBand(a);
+        return `<a class="ov-row" href="scores.html?teacher=${encodeURIComponent(t.name)}">
+          <span class="ov-av" aria-hidden="true">${esc(initials(t.name))}</span>
+          <span class="ov-who"><b>${esc(t.name)}</b><small>${esc(t.course)}</small></span>
+          <span class="ov-dots" title="${n} of ${TARGET} audits done">${Array.from({ length: TARGET }, (_, i) => `<i class="${i < n ? "f" : ""}"></i>`).join("")}</span>
+          ${b ? `<span class="ov-score b-${b.key}">${pct(a)}<small>${b.label}</small></span>` : `<span class="ov-score pending">Pending</span>`}
+        </a>`;
       }).join("")}
-    </ul>`).join("");
+    </div>`;
+  }).join("");
 }
 
 const FLAG_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 2h2v20H5zM8 3h11l-2.5 4.5L19 12H8z"/></svg>';
@@ -153,8 +194,7 @@ function renderCentres(centres, month) {
     const both = ts.filter(t => (counts[key(t)] || 0) >= TARGET).length;
     const flagged = new Set(list.filter(a => a.referredToAcademic === "Yes").map(a => a.teacher)).size;
     const a = avg(list);
-    const tone = a == null ? "" : a >= 80 ? "ok" : a >= REFERRAL_RULES.minScorePct ? "mid" : "bad";
-    const word = { ok: "Strong", mid: "Fair", bad: "Low" }[tone];
+    const band = scoreBand(a);
     const status = !done ? "Not started yet" : left > 0 ? `${done} done · ${left} to go` : "Monthly target met";
     return `<article class="ccard">
       <div class="ccard-city">${esc(centreOf(c).city)}</div>
@@ -166,7 +206,7 @@ function renderCentres(centres, month) {
       </div>
       <div class="ccard-metrics">
         <div><div class="mk">Average score</div>
-          ${a == null ? `<div class="mv quiet">Not yet</div>` : `<div class="mv">${pct(a)}<span class="tone t-${tone}">${word}</span></div>`}</div>
+          ${a == null ? `<div class="mv quiet">Not yet</div>` : `<div class="mv">${pct(a)}<span class="tone t-${band.key}">${band.label}</span></div>`}</div>
         <div class="vdiv"></div>
         <div><div class="mk">${FLAG_ICON} Flagged</div>
           ${flagged ? `<div class="mv flagged">${flagged}<span>teacher${flagged > 1 ? "s" : ""}</span></div>` : `<div class="mv quiet">None</div>`}</div>
@@ -235,7 +275,7 @@ async function load() {
     audits = out.audits || [];
     render();
   } catch (e) {
-    $("todoList").innerHTML = `<p class="errors">Couldn't load audits: ${esc(e.message)}</p>`;
+    $("ovLeftText").innerHTML = `<span class="errors">Couldn't load audits: ${esc(e.message)}</span>`;
   }
 }
 
@@ -245,6 +285,13 @@ document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => {
   renderTable();
 });
 $("centreFilter").onchange = renderTable;
+$("bandsBtn").onclick = e => {
+  e.stopPropagation();
+  const open = $("bandsPop").hidden;
+  $("bandsPop").hidden = !open; $("bandsBtn").setAttribute("aria-expanded", open);
+};
+document.addEventListener("click", e => { if (!e.target.closest(".bands-wrap")) { $("bandsPop").hidden = true; $("bandsBtn").setAttribute("aria-expanded", false); } });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { $("bandsPop").hidden = true; $("bandsBtn").setAttribute("aria-expanded", false); } });
 // Pick up audits submitted in another tab when the page comes back into view.
 document.addEventListener("visibilitychange", () => { if (!document.hidden && ctx) load(); });
 
@@ -254,7 +301,6 @@ App.start("home", c => {
   document.querySelector(".start-btn").hidden = !ctx.isAuditor;      // view-only reviewers can't start audits
   const centres = myCentres();
   // Reviewers see the centre overview first, then the coverage list.
-  if (isReviewer()) $("centresSection").after($("todoCard"));
   $("centreFilter").hidden = centres.length < 2;
   $("centreFilter").innerHTML = `<option value="${ANY}">All centres</option>` + centres.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   load();

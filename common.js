@@ -20,6 +20,16 @@ function fmtDate(iso) {
 }
 const centreOf = name => CENTRES.find(c => c.name === name);
 
+/** Score bands used everywhere: Poor ≤40, Average 41–60, Good 61–90, Excellent 91–100. */
+function scoreBand(p) {
+  if (p == null || p === "" || isNaN(p)) return null;
+  p = Number(p);
+  if (p <= 40) return { key: "poor", label: "Poor" };
+  if (p <= 60) return { key: "average", label: "Average" };
+  if (p <= 90) return { key: "good", label: "Good" };
+  return { key: "excellent", label: "Excellent" };
+}
+
 /** Score + automatic-referral check for a list of { rating } (same rules as Code.gs). */
 function scoreItems(items) {
   let total = 0, max = 0, rated = 0, zeros = 0;
