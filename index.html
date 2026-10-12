@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261012a">
+<link rel="stylesheet" href="styles.css?v=20261012b">
 </head>
 <body>
 
@@ -71,8 +71,8 @@
   </section>
 </main>
 
-<script src="config.js?v=20261012a"></script>
-<script src="common.js?v=20261012a"></script>
+<script src="config.js?v=20261012b"></script>
+<script src="common.js?v=20261012b"></script>
 <script>
 let ctx = null, audits = [], view = "course";
 const TARGET = AUDITS_PER_TEACHER_PER_MONTH;
@@ -152,6 +152,8 @@ function renderTodo(centres, teachers, month) {
   const scores = {};
   month.forEach(a => { if (a.scorePct == null || a.scorePct === "") return; (scores[a.teacher + "|" + a.centre] = scores[a.teacher + "|" + a.centre] || []).push(Number(a.scorePct)); });
   const avgOf = t => { const v = scores[key(t)]; return v && v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length * 10) / 10 : null; };
+  // Teachers with at least one flagged audit this month (low score or too many 0 ratings).
+  const flaggedKeys = new Set(month.filter(a => a.referredToAcademic === "Yes").map(a => a.teacher + "|" + a.centre));
 
   $("ovCols").style.setProperty("--cols", Math.min(centres.length, 3));
   $("ovCols").innerHTML = centres.map(c => {
@@ -162,10 +164,10 @@ function renderTodo(centres, teachers, month) {
       <div class="ov-colhead"><div><div class="ccard-city">${esc(centreOf(c).city)}</div><div class="ov-cname">${esc(c)}</div></div>
         <span class="ov-count">${complete} of ${ts.length} complete</span></div>
       ${ts.map(({ t, n, a }) => {
-        const b = scoreBand(a);
-        return `<a class="ov-row" href="scores.html?teacher=${encodeURIComponent(t.name)}">
+        const b = scoreBand(a), fl = flaggedKeys.has(key(t));
+        return `<a class="ov-row${fl ? " is-flagged" : ""}" href="scores.html?teacher=${encodeURIComponent(t.name)}">
           <span class="ov-av" aria-hidden="true">${esc(initials(t.name))}</span>
-          <span class="ov-who"><b>${esc(t.name)}</b><small>${esc(t.course)}</small></span>
+          <span class="ov-who"><b><span class="ov-nm">${esc(t.name)}</span>${fl ? `<span class="ov-flag" title="Flagged this month" aria-label="Flagged this month">${FLAG_ICON}</span>` : ""}</b><small>${esc(t.course)}</small></span>
           <span class="ov-dots" title="${n} of ${TARGET} audits done">${Array.from({ length: TARGET }, (_, i) => `<i class="${i < n ? "f" : ""}"></i>`).join("")}</span>
           ${b ? `<span class="ov-score b-${b.key}">${pct(a)}<small>${b.label}</small></span>` : `<span class="ov-score pending">Pending</span>`}
         </a>`;
