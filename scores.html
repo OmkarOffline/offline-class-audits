@@ -4,46 +4,63 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Audit Scores | Artium Academy</title>
-<link rel="stylesheet" href="styles.css?v=20261013a">
+<link rel="stylesheet" href="styles.css?v=20261013b">
 </head>
 <body>
 
 <main id="page" hidden>
   <!-- Filters (auditors only) -->
-  <div class="card" id="filterCard" hidden>
-    <div class="filters">
-      <div id="centreWrap">
-        <label class="f" for="centrePick">Centre</label>
-        <select id="centrePick"></select>
-      </div>
-      <div>
-        <label class="f" for="teacherPick">Teacher</label>
-        <select id="teacherPick"></select>
-      </div>
-      <div>
-        <label class="f" for="batchPick">Batch type</label>
-        <select id="batchPick"></select>
-      </div>
-    </div>
-    <div class="period">
-      <div>
-        <label class="f" for="monthPick">Month</label>
-        <select id="monthPick"></select>
-      </div>
-      <div>
-        <label class="f" for="yearPick">Year</label>
-        <select id="yearPick"></select>
-      </div>
-      <div>
-        <label class="f" for="fromDate">Start date</label>
-        <input type="date" id="fromDate">
-      </div>
-      <div>
-        <label class="f" for="toDate">End date</label>
-        <input type="date" id="toDate">
+  <div class="card fcard" id="filterCard" hidden>
+    <div class="fgroup">
+      <div class="feyebrow">Who</div>
+      <div class="filters">
+        <div id="centreWrap">
+          <label class="f" for="centrePick">Centre</label>
+          <span class="sel"><select id="centrePick"></select></span>
+        </div>
+        <div>
+          <label class="f" for="teacherPick">Teacher</label>
+          <span class="sel"><select id="teacherPick"></select></span>
+        </div>
+        <div>
+          <label class="f" for="batchPick">Batch type</label>
+          <span class="sel"><select id="batchPick"></select></span>
+        </div>
       </div>
     </div>
-    <div class="hint" style="margin-top:6px">Pick a month and year, or set your own start and end dates.</div>
+    <div class="fgroup">
+      <div class="fgroup-head">
+        <div class="feyebrow">When</div>
+        <div class="pmode" role="radiogroup" aria-label="Choose the period by">
+          <input type="radio" name="pmode" id="pmMonth" value="month" checked><label for="pmMonth">By month</label>
+          <input type="radio" name="pmode" id="pmRange" value="range"><label for="pmRange">Date range</label>
+        </div>
+      </div>
+      <div class="period" id="periodMonth">
+        <div>
+          <label class="f" for="monthPick">Month</label>
+          <span class="sel"><select id="monthPick"></select></span>
+        </div>
+        <div>
+          <label class="f" for="yearPick">Year</label>
+          <span class="sel"><select id="yearPick"></select></span>
+        </div>
+      </div>
+      <div class="period" id="periodRange" hidden>
+        <div>
+          <label class="f" for="fromDate">Start date</label>
+          <input type="date" id="fromDate">
+        </div>
+        <div>
+          <label class="f" for="toDate">End date</label>
+          <input type="date" id="toDate">
+        </div>
+      </div>
+    </div>
+    <div class="fsum">
+      <span id="filterSummary"></span>
+      <button class="linkbtn" type="button" id="resetFilters" hidden>Reset filters</button>
+    </div>
     <div class="banner warn small" id="sampleBar" hidden style="margin:14px 0 0">
       <span id="sampleText"></span>
       <button class="linkbtn" type="button" id="sampleBtn"></button>
@@ -53,8 +70,8 @@
   <div id="content"></div>
 </main>
 
-<script src="config.js?v=20261013a"></script>
-<script src="common.js?v=20261013a"></script>
+<script src="config.js?v=20261013b"></script>
+<script src="common.js?v=20261013b"></script>
 <script>
 const ANY = "__all";
 let ctx = null;
@@ -138,9 +155,18 @@ function setupPeriod(saved) {
   };
   $("fromDate").onchange = fromDates;
   $("toDate").onchange = fromDates;
+  // "By month" / "Date range" switch. Switching to a range keeps the month's dates as a starting point.
+  $("pmRange").onchange = () => { syncPeriodUI(); };
+  $("pmMonth").onchange = () => {
+    if ($("monthPick").value === "custom") { $("monthPick").value = "all"; $("fromDate").value = ""; $("toDate").value = ""; }
+    syncPeriodUI(); refresh();
+  };
 }
 function syncPeriodUI() {
   const m = $("monthPick").value;
+  const range = m === "custom" || $("pmRange").checked;
+  $("pmRange").checked = range; $("pmMonth").checked = !range;
+  $("periodMonth").hidden = range; $("periodRange").hidden = !range;
   $("monthPick").querySelector('option[value="custom"]').hidden = m !== "custom";
   $("yearPick").disabled = m === "all" || m === "custom";
   $("toDate").min = $("fromDate").value || "";
@@ -200,6 +226,28 @@ function setupFilters() {
   $("centrePick").onchange = () => { fillTeachers(); refresh(); };
   $("teacherPick").onchange = refresh;
   $("batchPick").onchange = refresh;
+  $("resetFilters").onclick = resetFilters;
+}
+/** Highlights the filters in use, and writes the one-line summary under them. */
+function paintFilters(f) {
+  [["centrePick", f.centre !== ANY && !$("centreWrap").hidden], ["teacherPick", f.teacher !== ANY], ["batchPick", f.batch !== ANY],
+   ["monthPick", f.month !== "all" && f.month !== "custom"], ["yearPick", f.month !== "all" && f.month !== "custom"],
+   ["fromDate", !!f.from && f.month === "custom"], ["toDate", !!f.to && f.month === "custom"]]
+    .forEach(([id, on]) => $(id).classList.toggle("on", on));
+  const [from, to, periodLabel] = periodRange();
+  const inPeriod = a => (f.batch === ANY || a.batchType === f.batch) && (!from || a.date >= from) && (!to || a.date <= to);
+  const t = f.teacher !== ANY ? TEACHERS.find(x => x.name === f.teacher) : null;
+  const n = allAudits.filter(a => inPeriod(a) && (t ? a.teacher === t.name && a.centre === t.centre : (f.centre === ANY || a.centre === f.centre))).length;
+  const scope = t ? t.name : f.centre === ANY ? (allowedCentres().length > 1 ? "All centres" : allowedCentres()[0]) : f.centre;
+  $("filterSummary").innerHTML = `Showing <b>${n} audit${n === 1 ? "" : "s"}</b> · ${esc(scope)}` +
+    (f.batch !== ANY ? ` · ${esc(f.batch)} batches` : "") + ` · ${esc(periodLabel || "All time")}`;
+  $("resetFilters").hidden = !(f.teacher !== ANY || f.batch !== ANY || f.from || f.to || (f.centre !== ANY && allowedCentres().length > 1));
+}
+function resetFilters() {
+  if (allowedCentres().length > 1) $("centrePick").value = ANY;
+  fillTeachers(); $("teacherPick").value = ANY; $("batchPick").value = ANY;
+  $("monthPick").value = "all"; $("fromDate").value = ""; $("toDate").value = ""; $("pmMonth").checked = true;
+  syncPeriodUI(); refresh();
 }
 function filters() {
   return { centre: $("centrePick").value, teacher: $("teacherPick").value, batch: $("batchPick").value,
@@ -223,6 +271,7 @@ function refresh() {
   if (!ctx.canView) { renderTeacher(ctx.teacher, allAudits); return; }
   const f = filters();
   store.set("artium-scores-filters", { ...f, rankBy }, sessionStorage);
+  paintFilters(f);
   updateSampleBar();
   const [from, to, periodLabel] = periodRange();
   const keep = a => (f.batch === ANY || a.batchType === f.batch) && (!from || a.date >= from) && (!to || a.date <= to);
