@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>New Audit | Artium Academy</title>
-<link rel="stylesheet" href="styles.css?v=20261012b">
+<link rel="stylesheet" href="styles.css?v=20261013a">
 </head>
 <body>
 
@@ -138,8 +138,8 @@
   </div>
 </main>
 
-<script src="config.js?v=20261012b"></script>
-<script src="common.js?v=20261012b"></script>
+<script src="config.js?v=20261013a"></script>
+<script src="common.js?v=20261013a"></script>
 <script>
 const DRAFT_KEY = "artium-class-audit-draft-v1";
 let ctx = null;      // signed-in user: { session, people, auditors, teacher, isAuditor }
@@ -362,6 +362,7 @@ function buildPayload() {
   const teacher = TEACHERS.find(t => t.name === s.teacher) || {};
   return {
     submittedBy: ctx.session.email,
+    submissionId,
     clientSubmittedAt: new Date().toISOString(),
     auditor: s.auditor, auditorRole: auditor.role || "", auditorEmail: auditor.email || "",
     centre: s.centre, city: $("city").value,
@@ -378,20 +379,29 @@ function buildPayload() {
   };
 }
 
+// One id per audit, kept across retries, so the server saves (and emails) a resent audit only once.
+let submissionId = null, submitting = false;
+const newSubmissionId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
 async function submit() {
-  if (!validate()) return;
+  if (submitting || !validate()) return;
+  submissionId = submissionId || newSubmissionId();
   App.ensureFresh(async () => {
+    if (submitting) return;
+    submitting = true;
     const payload = buildPayload();
     const btn = $("submitBtn");
     btn.disabled = true; btn.textContent = "Submitting…";
     try {
       await App.api("submit", payload);
       store.del(DRAFT_KEY);
+      submissionId = null;
       showDone(payload);
     } catch (e) {
       $("formErrors").textContent = "Couldn't submit: " + e.message + " Your answers are still here; please try again.";
       $("formErrors").hidden = false;
     } finally {
+      submitting = false;
       btn.disabled = false; btn.textContent = "Submit audit";
     }
   });
@@ -408,6 +418,7 @@ function showDone(p) {
 }
 
 function resetForm() {
+  submissionId = null;
   $("auditForm").reset();
   document.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
   $("formErrors").hidden = true; $("reasonWrap").hidden = true; $("draftBanner").hidden = true;
