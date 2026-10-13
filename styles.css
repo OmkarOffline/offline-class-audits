@@ -215,8 +215,8 @@
   .staff{position:relative;height:96px;background:
       repeating-linear-gradient(to bottom,transparent 0 17px,color-mix(in srgb,var(--accent) 28%,transparent) 17px 18px) 0 14px/100% 90px no-repeat,
       linear-gradient(135deg,var(--accent-soft),var(--card));}
-  .note{position:absolute;width:13px;height:10px;border-radius:50%;background:var(--accent);transform:rotate(-20deg)}
-  .note::after{content:"";position:absolute;right:0;bottom:4px;width:2px;height:30px;background:var(--accent)}
+  .staff .note{position:absolute;width:13px;height:10px;border-radius:50%;background:var(--accent);transform:rotate(-20deg)}
+  .staff .note::after{content:"";position:absolute;right:0;bottom:4px;width:2px;height:30px;background:var(--accent)}
   .n1{left:58%;top:58px}.n2{left:68%;top:40px}.n3{left:78%;top:49px;opacity:.7}
   .signin-body{padding:22px 28px 26px;display:grid;gap:12px}
   .eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
