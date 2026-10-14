@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Audit Scores | Artium Academy</title>
-<link rel="stylesheet" href="styles.css?v=20261013c">
+<link rel="stylesheet" href="styles.css?v=20261014a">
 </head>
 <body>
 
@@ -34,6 +34,7 @@
         <div class="pmode" role="radiogroup" aria-label="Choose the period by">
           <input type="radio" name="pmode" id="pmMonth" value="month" checked><label for="pmMonth">By month</label>
           <input type="radio" name="pmode" id="pmRange" value="range"><label for="pmRange">Date range</label>
+          <input type="radio" name="pmode" id="pmLife" value="life"><label for="pmLife">Lifetime</label>
         </div>
       </div>
       <div class="period" id="periodMonth">
@@ -46,6 +47,7 @@
           <span class="sel"><select id="yearPick"></select></span>
         </div>
       </div>
+      <div class="period-life" id="periodLife" hidden>Every audit to date.</div>
       <div class="period" id="periodRange" hidden>
         <div>
           <label class="f" for="fromDate">Start date</label>
@@ -70,8 +72,8 @@
   <div id="content"></div>
 </main>
 
-<script src="config.js?v=20261013c"></script>
-<script src="common.js?v=20261013c"></script>
+<script src="config.js?v=20261014a"></script>
+<script src="common.js?v=20261014a"></script>
 <script>
 const ANY = "__all";
 let ctx = null;
@@ -97,21 +99,25 @@ function auditPct(a, sectionId) {
 }
 
 /**
- * Weighted (Bayesian) average: blend the teacher's own average with the average across everyone
- * shown, as if the teacher had LEADERBOARD.priorAudits extra audits at that overall average.
+ * Leaderboard rows. The main score is the plain average of the teacher's audits in the chosen period.
+ * For "Lifetime" it is a weighted average instead: the teacher's lifetime average blended with everyone's,
+ * as if they had LEADERBOARD.priorAudits extra audits at that level, so one or two great classes can't top the board.
+ * Every row also carries the teacher's lifetime count and average (same centre and batch filters, any date).
  */
-function leaderboard(teachers, audits, sectionId) {
+function leaderboard(teachers, audits, lifeAudits, sectionId, lifetime) {
   const k = LEADERBOARD.priorAudits;
-  const allPcts = audits.map(a => auditPct(a, sectionId)).filter(p => p != null);
-  const C = mean(allPcts);
+  const C = mean(lifeAudits.map(a => auditPct(a, sectionId)).filter(p => p != null));
+  const mine = (list, t) => list.filter(a => a.teacher === t.name && a.centre === t.centre);
   const rows = teachers.map(t => {
-    const pcts = audits.filter(a => a.teacher === t.name && a.centre === t.centre)
+    const period = mine(audits, t).slice().sort((a, b) => (a.date + a.batchTime).localeCompare(b.date + b.batchTime))
       .map(a => auditPct(a, sectionId)).filter(p => p != null);
-    const n = pcts.length, avg = mean(pcts);
-    const weighted = n ? (n * avg + k * C) / (n + k) : null;
-    return { t, n, avg, weighted };
+    const life = mine(lifeAudits, t).map(a => auditPct(a, sectionId)).filter(p => p != null);
+    const lifeAvg = mean(life), lifeN = life.length;
+    const weighted = lifeN ? (lifeN * lifeAvg + k * C) / (lifeN + k) : null;
+    const n = lifetime ? lifeN : period.length;
+    return { t, n, scores: period, avg: mean(period), lifeN, lifeAvg, main: lifetime ? weighted : (period.length ? mean(period) : null) };
   });
-  rows.sort((a, b) => (b.weighted ?? -1) - (a.weighted ?? -1) || b.n - a.n || a.t.name.localeCompare(b.t.name));
+  rows.sort((a, b) => (b.main ?? -1) - (a.main ?? -1) || b.n - a.n || a.t.name.localeCompare(b.t.name));
   return { rows, C };
 }
 
@@ -122,62 +128,54 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const FIRST_YEAR = 2026;
 const lastDay = (y, m) => new Date(y, m, 0).getDate();     // m is 1–12
 
-/* Month + Year fill in the start and end dates; editing a date directly switches Month to "Custom dates". */
+/* Period: "By month" (default: this month), "Date range", or "Lifetime" (every audit). */
+let periodMode = "month";
+function setMonthDates() {
+  const m = +$("monthPick").value, y = +$("yearPick").value, mm = String(m).padStart(2, "0");
+  $("fromDate").value = `${y}-${mm}-01`;
+  $("toDate").value = `${y}-${mm}-${lastDay(y, m)}`;
+}
+function setThisMonth() {
+  const now = new Date();
+  $("monthPick").value = String(now.getMonth() + 1);
+  if ([...$("yearPick").options].some(o => +o.value === now.getFullYear())) $("yearPick").value = now.getFullYear();
+  setMonthDates();
+}
 function setupPeriod(saved) {
   const thisYear = new Date().getFullYear();
   const years = []; for (let y = Math.max(thisYear, FIRST_YEAR); y >= FIRST_YEAR; y--) years.push(y);
   $("yearPick").innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
-  $("monthPick").innerHTML = `<option value="all">All time</option>` +
-    MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("") +
-    `<option value="custom" hidden>Custom dates</option>`;
-  if (saved.year && years.includes(+saved.year)) $("yearPick").value = saved.year;
-  $("monthPick").value = saved.month || "all";
-  $("fromDate").value = saved.from || "";
-  $("toDate").value = saved.to || "";
+  $("monthPick").innerHTML = MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
+  periodMode = ["month", "range", "life"].includes(saved.mode) ? saved.mode : "month";
+  if (periodMode === "month" && saved.month && /^\d+$/.test(saved.month)) {
+    $("monthPick").value = saved.month;
+    if (saved.year && years.includes(+saved.year)) $("yearPick").value = saved.year;
+    setMonthDates();
+  } else setThisMonth();
+  if (periodMode === "range") { $("fromDate").value = saved.from || ""; $("toDate").value = saved.to || ""; }
   syncPeriodUI();
 
-  const fromMonthYear = () => {
-    const m = $("monthPick").value, y = +$("yearPick").value;
-    if (m === "all") { $("fromDate").value = ""; $("toDate").value = ""; }
-    else if (m !== "custom") {
-      const mm = String(m).padStart(2, "0");
-      $("fromDate").value = `${y}-${mm}-01`;
-      $("toDate").value = `${y}-${mm}-${lastDay(y, +m)}`;
-    }
-    syncPeriodUI(); refresh();
-  };
-  $("monthPick").onchange = fromMonthYear;
-  $("yearPick").onchange = fromMonthYear;
-  const fromDates = () => {
-    const f = $("fromDate").value, t = $("toDate").value;
-    $("monthPick").value = f || t ? "custom" : "all";
-    syncPeriodUI(); refresh();
-  };
-  $("fromDate").onchange = fromDates;
-  $("toDate").onchange = fromDates;
-  // "By month" / "Date range" switch. Switching to a range keeps the month's dates as a starting point.
-  $("pmRange").onchange = () => { syncPeriodUI(); };
-  $("pmMonth").onchange = () => {
-    if ($("monthPick").value === "custom") { $("monthPick").value = "all"; $("fromDate").value = ""; $("toDate").value = ""; }
-    syncPeriodUI(); refresh();
-  };
+  $("monthPick").onchange = $("yearPick").onchange = () => { setMonthDates(); syncPeriodUI(); refresh(); };
+  $("fromDate").onchange = $("toDate").onchange = () => { syncPeriodUI(); refresh(); };
+  $("pmMonth").onchange = () => { periodMode = "month"; setMonthDates(); syncPeriodUI(); refresh(); };
+  // Switching to a range keeps the month's dates as a starting point.
+  $("pmRange").onchange = () => { periodMode = "range"; syncPeriodUI(); refresh(); };
+  $("pmLife").onchange = () => { periodMode = "life"; syncPeriodUI(); refresh(); };
 }
 function syncPeriodUI() {
-  const m = $("monthPick").value;
-  const range = m === "custom" || $("pmRange").checked;
-  $("pmRange").checked = range; $("pmMonth").checked = !range;
-  $("periodMonth").hidden = range; $("periodRange").hidden = !range;
-  $("monthPick").querySelector('option[value="custom"]').hidden = m !== "custom";
-  $("yearPick").disabled = m === "all" || m === "custom";
+  $("pmMonth").checked = periodMode === "month"; $("pmRange").checked = periodMode === "range"; $("pmLife").checked = periodMode === "life";
+  $("periodMonth").hidden = periodMode !== "month"; $("periodRange").hidden = periodMode !== "range"; $("periodLife").hidden = periodMode !== "life";
   $("toDate").min = $("fromDate").value || "";
   $("fromDate").max = $("toDate").value || "";
 }
+const isThisMonth = () => { const n = new Date(); return +$("monthPick").value === n.getMonth() + 1 && +$("yearPick").value === n.getFullYear(); };
 
 /** Returns [from, to, label]; from/to are yyyy-mm-dd or "". */
 function periodRange() {
-  const f = $("fromDate").value, t = $("toDate").value, m = $("monthPick").value;
-  if (!f && !t) return ["", "", ""];
-  if (m !== "custom" && m !== "all") return [f, t, `${MONTHS[m - 1]} ${$("yearPick").value}`];
+  if (periodMode === "life") return ["", "", "Lifetime"];
+  const f = $("fromDate").value, t = $("toDate").value;
+  if (periodMode === "month") return [f, t, `${MONTHS[$("monthPick").value - 1]} ${$("yearPick").value}`];
+  if (!f && !t) return ["", "", "Lifetime"];
   return [f, t, `${f ? fmtDate(f) : "Start"} to ${t ? fmtDate(t) : "today"}`];
 }
 
@@ -231,8 +229,8 @@ function setupFilters() {
 /** Highlights the filters in use, and writes the one-line summary under them. */
 function paintFilters(f) {
   [["centrePick", f.centre !== ANY && !$("centreWrap").hidden], ["teacherPick", f.teacher !== ANY], ["batchPick", f.batch !== ANY],
-   ["monthPick", f.month !== "all" && f.month !== "custom"], ["yearPick", f.month !== "all" && f.month !== "custom"],
-   ["fromDate", !!f.from && f.month === "custom"], ["toDate", !!f.to && f.month === "custom"]]
+   ["monthPick", f.mode === "month" && !isThisMonth()], ["yearPick", f.mode === "month" && !isThisMonth()],
+   ["fromDate", !!f.from && f.mode === "range"], ["toDate", !!f.to && f.mode === "range"]]
     .forEach(([id, on]) => $(id).classList.toggle("on", on));
   const [from, to, periodLabel] = periodRange();
   const inPeriod = a => (f.batch === ANY || a.batchType === f.batch) && (!from || a.date >= from) && (!to || a.date <= to);
@@ -240,18 +238,19 @@ function paintFilters(f) {
   const n = allAudits.filter(a => inPeriod(a) && (t ? a.teacher === t.name && a.centre === t.centre : (f.centre === ANY || a.centre === f.centre))).length;
   const scope = t ? t.name : f.centre === ANY ? (allowedCentres().length > 1 ? "All centres" : allowedCentres()[0]) : f.centre;
   $("filterSummary").innerHTML = `Showing <b>${n} audit${n === 1 ? "" : "s"}</b> · ${esc(scope)}` +
-    (f.batch !== ANY ? ` · ${esc(f.batch)} batches` : "") + ` · ${esc(periodLabel || "All time")}`;
-  $("resetFilters").hidden = !(f.teacher !== ANY || f.batch !== ANY || f.from || f.to || (f.centre !== ANY && allowedCentres().length > 1));
+    (f.batch !== ANY ? ` · ${esc(f.batch)} batches` : "") + ` · ${esc(periodLabel || "Lifetime")}`;
+  $("resetFilters").hidden = !(f.teacher !== ANY || f.batch !== ANY || f.mode !== "month" || !isThisMonth() || (f.centre !== ANY && allowedCentres().length > 1));
 }
 function resetFilters() {
   if (allowedCentres().length > 1) $("centrePick").value = ANY;
   fillTeachers(); $("teacherPick").value = ANY; $("batchPick").value = ANY;
-  $("monthPick").value = "all"; $("fromDate").value = ""; $("toDate").value = ""; $("pmMonth").checked = true;
+  periodMode = "month"; setThisMonth();
   syncPeriodUI(); refresh();
 }
 function filters() {
   return { centre: $("centrePick").value, teacher: $("teacherPick").value, batch: $("batchPick").value,
-           month: $("monthPick").value, year: $("yearPick").value, from: $("fromDate").value, to: $("toDate").value };
+           mode: periodMode, month: $("monthPick").value, year: $("yearPick").value,
+           from: periodMode === "life" ? "" : $("fromDate").value, to: periodMode === "life" ? "" : $("toDate").value };
 }
 
 /* ---------------- load ---------------- */
@@ -281,8 +280,9 @@ function refresh() {
     renderTeacher(t, allAudits.filter(a => a.teacher === t.name && a.centre === t.centre && keep(a)), note);
   } else {
     const teachers = teachersIn(f.centre);
-    const audits = allAudits.filter(a => (f.centre === ANY || a.centre === f.centre) && keep(a));
-    renderGroup(teachers, audits, f, note);
+    const inScope = a => (f.centre === ANY || a.centre === f.centre) && (f.batch === ANY || a.batchType === f.batch);
+    const audits = allAudits.filter(a => inScope(a) && keep(a));
+    renderGroup(teachers, audits, f, note, allAudits.filter(inScope));
   }
 }
 
@@ -298,7 +298,7 @@ function updateSampleBar() {
 }
 
 /* ---------------- group view: leaderboards ---------------- */
-function renderGroup(teachers, audits, f, note) {
+function renderGroup(teachers, audits, f, note, lifeAudits) {
   const scope = f.centre === ANY ? "All centres" : `${f.centre}, ${centreOf(f.centre).city}`;
   const batchNote = note ? " · " + note : "";
   const audited = new Set(audits.map(a => a.teacher + "|" + a.centre));
@@ -306,7 +306,9 @@ function renderGroup(teachers, audits, f, note) {
   const referred = audits.filter(a => a.referredToAcademic === "Yes").length;
   const showCentre = f.centre === ANY;
 
-  const { rows, C } = leaderboard(teachers, audits, rankBy);
+  const lifetime = f.mode === "life";
+  const { rows, C } = leaderboard(teachers, audits, lifeAudits, rankBy, lifetime);
+  const periodName = lifetime ? "Lifetime" : f.mode === "month" ? (isThisMonth() ? "This month" : `${MONTHS[f.month - 1]} ${f.year}`) : "Selected dates";
   const ranked = rows.filter(r => r.n), unaudited = rows.filter(r => !r.n);
   const chips = [["overall", "Overall"], ...CHECKLIST.map(s => [s.id, `${s.id}. ${SECTION_SHORT[s.id]}`])];
 
@@ -322,45 +324,88 @@ function renderGroup(teachers, audits, f, note) {
       </div>
     </div>
 
-    <div class="card">
-      <h2>Leaderboard</h2>
-      <div class="chips" role="tablist" aria-label="Rank by">
+    <div class="card lbcard">
+      <div class="lb-top">
+        <div>
+          <div class="feyebrow">Leaderboard</div>
+          <h2 class="lb-title">${rankBy === "overall" ? "Overall" : esc(SECTION_SHORT[rankBy])}<span class="lb-period"> · ${esc(periodName)}</span></h2>
+        </div>
+        <div class="bands-wrap">
+          <button type="button" class="bands-btn" id="lbInfoBtn" aria-expanded="false" aria-controls="lbInfoPop">ⓘ How ranking works</button>
+          <div class="bands-pop lb-pop" id="lbInfoPop" hidden>
+            <div class="bands-title">How ranking works</div>
+            <p><b>By month or date range:</b> teachers are ranked by the average of their audits in that period. The dots show each audit's score, and hollow dots are audits still to do this month.</p>
+            <p><b>Lifetime:</b> teachers are ranked by a weighted score. Their lifetime average is blended with the group average (${pctText(C)}) as if they had ${LEADERBOARD.priorAudits} more audits at that level, so one or two great classes can't top the board.</p>
+            <p class="lb-pop-few">Under each name: lifetime audits and lifetime average.</p>
+          </div>
+        </div>
+      </div>
+      <div class="chips lb-chips" role="tablist" aria-label="Rank by">
         ${chips.map(([id, label]) => `<button type="button" role="tab" class="chip ${id === rankBy ? "on" : ""}" aria-selected="${id === rankBy}" data-rank="${id}">${esc(label)}</button>`).join("")}
       </div>
-      <p class="muted small" style="margin:12px 0 4px">
-        Ranked by weighted score${rankBy === "overall" ? "" : " for " + esc(SECTION_SHORT[rankBy])}. Each teacher's average is blended with
-        the group average (${pctText(C)}) as if they had ${LEADERBOARD.priorAudits} more audits at that level, so one or two great classes can't top the board.
-      </p>
-      ${ranked.length ? `
+      ${ranked.length ? podium(ranked.slice(0, 3), showCentre, f.mode) + (ranked.length > 3 ? `
       <div class="lb" role="table">
-        <div class="lb-row lb-head" role="row">
-          <span role="columnheader">#</span><span role="columnheader">Teacher</span>
-          <span role="columnheader" class="num">Audits</span><span role="columnheader" class="num">Average</span>
-          <span role="columnheader" class="num">Weighted</span>
-        </div>
-        ${ranked.map((r, i) => `
-        <button type="button" class="lb-row" role="row" data-teacher="${esc(r.t.name)}">
-          <span class="rank">${i + 1}</span>
-          <span class="who-cell"><b>${esc(r.t.name)}</b><small>${esc(r.t.course)}${showCentre ? " · " + esc(r.t.centre) : ""}</small></span>
-          <span class="num">${r.n}${r.n < LEADERBOARD.priorAudits ? `<small class="few" title="Few audits: score is pulled towards the average">few</small>` : ""}</span>
-          <span class="num muted">${pctText(r.avg)}</span>
-          <span class="num"><span class="scorepill ${pillClass(r.weighted)}">${pctText(r.weighted)}</span></span>
-          <span class="lb-bar"><span style="width:${Math.max(0, Math.min(100, r.weighted))}%"></span></span>
-        </button>`).join("")}
-      </div>` : `<div class="empty">No audits match these filters yet.</div>`}
-      ${unaudited.length ? `<p class="muted small" style="margin:12px 0 0"><b>Not audited${note ? " (" + esc(note) + ")" : " yet"}:</b> ${unaudited.map(r => esc(r.t.name)).join(", ")}</p>` : ""}
+        ${ranked.slice(3).map((r, i) => lbRow(r, i + 4, showCentre, f.mode)).join("")}
+      </div>` : "") : `<div class="empty">No audits match these filters yet.</div>`}
+      ${unaudited.length ? `<div class="lb-wait"><span class="lb-wait-k">${lifetime ? "Not audited yet" : "No audits " + (f.mode === "month" ? (isThisMonth() ? "this month" : "in " + esc(periodName)) : "in these dates")}</span>
+        <span class="lb-wait-list">${unaudited.map(r => `<span class="lb-wait-p"><i>${esc(initialsOf(r.t.name))}</i>${esc(r.t.name)}</span>`).join("")}</span></div>` : ""}
     </div>
     ${monthTable(audits)}`;
 
   $("content").querySelectorAll(".chip").forEach(b => b.onclick = () => { rankBy = b.dataset.rank; refresh(); });
   const on = $("content").querySelector(".chip.on");
   if (on) on.parentNode.scrollLeft = on.offsetLeft - on.parentNode.offsetLeft - 24;
-  $("content").querySelectorAll(".lb-row[data-teacher]").forEach(b => b.onclick = () => {
+  $("lbInfoBtn").onclick = e => {
+    e.stopPropagation();
+    const open = $("lbInfoPop").hidden;
+    $("lbInfoPop").hidden = !open; $("lbInfoBtn").setAttribute("aria-expanded", open);
+  };
+  $("content").querySelectorAll("[data-teacher]").forEach(b => b.onclick = () => {
     const t = TEACHERS.find(x => x.name === b.dataset.teacher);
     if ($("centrePick").value !== ANY) $("centrePick").value = t.centre;
     $("teacherPick").value = t.name;
     refresh(); window.scrollTo(0, 0);
   });
+}
+
+const initialsOf = n => n.split(/\s+/).filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+/** Audit dots: filled with the score for each audit done; hollow for audits still due this month. */
+function auditDots(r, mode) {
+  if (mode === "life") return "";
+  const due = mode === "month" ? Math.max(0, AUDITS_PER_TEACHER_PER_MONTH - r.scores.length) : 0;
+  return `<span class="adots">${r.scores.map(p => { const b = scoreBand(p); return `<span class="adot"><i class="f"></i><span class="sc-${b ? b.key : "na"}">${Math.round(p)}%</span></span>`; }).join("")}${
+    Array.from({ length: due }, () => `<span class="adot" title="Audit still to do"><i></i></span>`).join("")}</span>`;
+}
+const lifeLine = r => `Lifetime audits: ${r.lifeN} · Avg ${pctText(r.lifeAvg)}`;
+
+/** Top three on a podium: 2nd · 1st · 3rd, with the leader raised in the middle. */
+function podium(top, showCentre, mode) {
+  const medals = ["gold", "silver", "bronze"];
+  const order = top.length === 3 ? [1, 0, 2] : top.length === 2 ? [1, 0] : [0];
+  return `<div class="podium podium-${top.length}">` + order.map(i => {
+    const r = top[i], b = scoreBand(r.main);
+    return `<button type="button" class="pod pod-${medals[i]}" data-teacher="${esc(r.t.name)}">
+      ${i === 0 ? `<span class="pod-crown" aria-hidden="true"><svg viewBox="0 0 24 16" width="26" height="17"><path fill="currentColor" d="M2 14 0 3l6 4 6-7 6 7 6-4-2 11z"/></svg></span>` : ""}
+      <span class="pod-av"><span>${esc(initialsOf(r.t.name))}</span><em>${i + 1}</em></span>
+      <b class="pod-name">${esc(r.t.name)}</b>
+      <small class="pod-sub">${esc(r.t.course)}${showCentre ? " · " + esc(r.t.centre) : ""}</small>
+      <span class="pod-score sc-${b ? b.key : "na"}">${pctText(r.main)}</span>
+      ${mode === "life" ? `<span class="pod-kind">weighted score</span>` : auditDots(r, mode)}
+      <span class="pod-meta">${lifeLine(r)}</span>
+      <span class="pod-step">${i + 1}</span>
+    </button>`;
+  }).join("") + `</div>`;
+}
+
+function lbRow(r, rank, showCentre, mode) {
+  const b = scoreBand(r.main);
+  return `<button type="button" class="lb-row" role="row" data-teacher="${esc(r.t.name)}">
+    <span class="rank">${rank}</span>
+    <span class="lb-av">${esc(initialsOf(r.t.name))}</span>
+    <span class="who-cell"><b>${esc(r.t.name)}</b><small>${esc(r.t.course)}${showCentre ? " · " + esc(r.t.centre) : ""}</small><small class="lb-life">${lifeLine(r)}</small></span>
+    <span class="lb-dots">${auditDots(r, mode)}</span>
+    <span class="lb-score sc-${b ? b.key : "na"}">${pctText(r.main)}</span>
+  </button>`;
 }
 
 /* ---------------- month by month ---------------- */
@@ -484,6 +529,9 @@ function renderAudit(a, open) {
       </div>
     </details>`;
 }
+
+document.addEventListener("click", e => { const p = $("lbInfoPop"); if (p && !e.target.closest(".bands-wrap")) { p.hidden = true; $("lbInfoBtn").setAttribute("aria-expanded", false); } });
+document.addEventListener("keydown", e => { const p = $("lbInfoPop"); if (p && e.key === "Escape") { p.hidden = true; $("lbInfoBtn").setAttribute("aria-expanded", false); } });
 
 $("sampleBtn").onclick = () => {
   allAudits.some(a => a.sample) ? App.clearPreview() : App.seedPreview();
